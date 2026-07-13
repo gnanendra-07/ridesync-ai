@@ -57,17 +57,18 @@ const Navbar = () => {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
             <Link
-              href="#"
+              href="/login"
               className="text-sm font-semibold text-[#16324F]/60 hover:text-[#16324F] transition-colors"
             >
               Sign In
             </Link>
-            <button
+            <Link
+              href="/login"
               id="nav-cta"
               className="bg-[#FF6B00] hover:bg-[#e66000] text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-md shadow-[#FF6B00]/25 hover:shadow-[#FF6B00]/40 transition-all duration-200 hover:-translate-y-px"
             >
               Get Started
-            </button>
+            </Link>
           </div>
 
           {/* Mobile hamburger */}

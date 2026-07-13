@@ -41,7 +41,7 @@ const Features = () => {
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl md:text-5xl font-bold text-[var(--color-secondary)] mb-6">
             Everything You Need. <br />
-            Nothing You Don't.
+            Nothing You Don&apos;t.
           </h2>
           <p className="text-lg text-gray-600">
             A comprehensive suite of tools designed specifically for the two-wheeled traveler.
