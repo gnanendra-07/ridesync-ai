@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏍️ RideSync AI
 
-## Getting Started
+> **AI-Powered Motorcycle Travel Companion**
 
-First, run the development server:
+RideSync AI is a premium web application built for adventure riders to plan smarter, ride farther, and capture every journey.
+
+---
+
+## ✨ Features
+
+- 🗺️ AI Trip Planner
+- 🌦️ Live Weather Forecast
+- 📍 Smart Route Planning
+- ⛽ Fuel Cost Estimation
+- 📖 Ride Journal
+- 🏍️ My Garage
+- 🤖 AI Riding Assistant
+- 🚨 Emergency SOS (Planned)
+
+---
+
+## 🛠️ Tech Stack
+
+- Next.js 15
+- TypeScript
+- Tailwind CSS
+- React
+- Lucide Icons
+
+---
+
+## 📸 Current Progress
+
+### ✅ Module 1
+- Premium Landing Page
+- Responsive Design
+- Hero Section
+- Navigation
+- Feature Sections
+
+### 🚧 Upcoming Modules
+
+- Authentication
+- Dashboard
+- My Garage
+- AI Trip Planner
+- Ride Journal
+- Weather Intelligence
+- AI Assistant
+
+---
+
+## 🚀 Installation
 
 ```bash
+git clone https://github.com/gnanendra-07/ridesync-ai.git
+
+cd ridesync-ai
+
+npm install
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📂 Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+ ├── app/
+ ├── components/
+ ├── hooks/
+ ├── lib/
+ └── styles/
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 👨‍💻 Developer
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Gnanendra Reddy**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+GitHub:
+https://github.com/gnanendra-07
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ⭐ Status
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+🚧 Under Active Development
+
+RideSync AI is being developed as a premium portfolio project focusing on AI-powered motorcycle travel experiences.
