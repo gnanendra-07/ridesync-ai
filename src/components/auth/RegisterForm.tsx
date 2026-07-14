@@ -108,6 +108,10 @@ const RegisterForm = () => {
       return;
     }
 
+    if (typeof window !== "undefined") {
+      localStorage.setItem("fullName", fullName);
+      localStorage.setItem("username", username);
+    }
     // Success -> Redirect to OTP page
     router.push("/verify-otp");
   };

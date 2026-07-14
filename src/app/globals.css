@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -15,8 +16,9 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Auth animations */
@@ -41,11 +43,43 @@ body {
   50%       { opacity: 0; }
 }
 
+/* Premium Dashboard Animations */
+@keyframes headlight-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px 2px rgba(255, 107, 0, 0.4),
+                0 0 20px 6px rgba(255, 107, 0, 0.15),
+                0 0 40px 10px rgba(255, 107, 0, 0.06);
+  }
+  50% {
+    box-shadow: 0 0 14px 4px rgba(255, 107, 0, 0.6),
+                0 0 32px 10px rgba(255, 107, 0, 0.25),
+                0 0 56px 16px rgba(255, 107, 0, 0.1);
+  }
+}
+
+@keyframes weather-float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33%       { transform: translateY(-4px) rotate(3deg); }
+  66%       { transform: translateY(-2px) rotate(-2deg); }
+}
+
+@keyframes beacon-ping {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes sidebar-glow-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(255, 107, 0, 0); }
+  50%       { box-shadow: inset 0 0 12px 0 rgba(255, 107, 0, 0.08); }
+}
+
 .animate-fade-in-up  { animation: fadeInUp     0.5s cubic-bezier(.22,.68,0,1.2) both; }
 .animate-fade-in     { animation: fadeIn        0.4s ease both; }
 .animate-slide-right { animation: slideInRight  0.45s cubic-bezier(.22,.68,0,1.2) both; }
 .animate-scale-in    { animation: scaleIn       0.4s cubic-bezier(.22,.68,0,1.2) both; }
 .animate-blink       { animation: blink         1s step-end infinite; }
+.animate-weather-float { animation: weather-float 3s ease-in-out infinite; }
+.animate-headlight-pulse { animation: headlight-pulse 2s ease-in-out infinite; }
 
 /* Stagger delay helpers */
 .delay-75  { animation-delay: 75ms; }
@@ -53,3 +87,188 @@ body {
 .delay-225 { animation-delay: 225ms; }
 .delay-300 { animation-delay: 300ms; }
 .delay-375 { animation-delay: 375ms; }
+
+/* ────────────────────────────────────────────────────────────────
+   PREMIUM THEME TRANSITION — covers every visual surface
+──────────────────────────────────────────────────────────────── */
+.theme-transition {
+  transition:
+    background-color 0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    background      0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    color           0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color    0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow      0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    backdrop-filter 0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity         0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    text-shadow     0.85s cubic-bezier(0.4, 0, 0.2, 1),
+    filter          0.85s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   GLASSMORPHISM CARD UTILITY
+──────────────────────────────────────────────────────────────── */
+.card-glass-night {
+  background: rgba(10, 19, 31, 0.65);
+  border: 1px solid rgba(22, 50, 79, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.card-glass-day {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(22, 50, 79, 0.07);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Active sidebar item glow */
+.nav-item-active {
+  position: relative;
+  color: #FF6B00;
+  background: rgba(255, 107, 0, 0.08);
+  border-color: rgba(255, 107, 0, 0.2);
+  box-shadow:
+    0 0 12px rgba(255, 107, 0, 0.12),
+    inset 0 0 8px rgba(255, 107, 0, 0.04);
+}
+
+.nav-item-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: #FF6B00;
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 8px rgba(255, 107, 0, 0.6);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   THEME VARIABLES
+──────────────────────────────────────────────────────────────── */
+.day-theme {
+  --bg-dashboard: #F3F4F6;
+  --bg-sidebar: rgba(255, 255, 255, 0.97);
+  --bg-card: rgba(255, 255, 255, 0.88);
+  --border-card: rgba(22, 50, 79, 0.07);
+  --text-primary: #0B1520;
+  --text-secondary: #4A5568;
+  --bg-input: #FFFFFF;
+  --border-input: rgba(22, 50, 79, 0.14);
+  --glow-color: rgba(255, 107, 0, 0.03);
+}
+
+.night-theme {
+  --bg-dashboard: #070E17;
+  --bg-sidebar: rgba(8, 15, 25, 0.95);
+  --bg-card: rgba(10, 19, 31, 0.65);
+  --border-card: rgba(22, 50, 79, 0.35);
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --bg-input: rgba(7, 14, 23, 0.9);
+  --border-input: rgba(22, 50, 79, 0.45);
+  --glow-color: rgba(255, 107, 0, 0.14);
+}
+
+/* ────────────────────────────────────────────────────────────────
+   PREMIUM CUSTOM CHECKBOX
+──────────────────────────────────────────────────────────────── */
+.checkbox-premium {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 2px solid rgba(255, 107, 0, 0.35);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.checkbox-premium:checked {
+  background: #FF6B00;
+  border-color: #FF6B00;
+  box-shadow: 0 0 8px rgba(255, 107, 0, 0.4);
+}
+
+.checkbox-premium:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 6px;
+  height: 10px;
+  border: 2px solid white;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+/* ─── Leaflet custom container and override styling ─── */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  background-color: #070e17 !important;
+}
+
+.night-theme .leaflet-tile {
+  filter: brightness(0.6) contrast(1.2) saturate(0.8) hue-rotate(200deg);
+}
+
+.leaflet-bar {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(10, 19, 31, 0.8) !important;
+  backdrop-filter: blur(10px);
+}
+
+.leaflet-bar a {
+  background-color: transparent !important;
+  color: #FF6B00 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: rgba(255, 107, 0, 0.1) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(8, 15, 25, 0.95) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 107, 0, 0.3) !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(10px);
+}
+
+.leaflet-popup-tip {
+  background: rgba(8, 15, 25, 0.95) !important;
+}
+
+/* Timeline Custom Styles */
+.timeline-dot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: calc(100% + 24px);
+  background: linear-gradient(to bottom, #FF6B00 50%, rgba(255, 107, 0, 0.1));
+}
+
+.timeline-dot-last::after {
+  display: none;
+}
+

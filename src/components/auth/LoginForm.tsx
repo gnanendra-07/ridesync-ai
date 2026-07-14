@@ -123,6 +123,12 @@ const LoginFormContent = () => {
       return;
     }
 
+    if (typeof window !== "undefined") {
+      const parts = email.split("@");
+      const derivedName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      localStorage.setItem("fullName", derivedName);
+      localStorage.setItem("username", parts[0]);
+    }
     // Success -> redirect to /dashboard
     router.push("/dashboard");
   };
