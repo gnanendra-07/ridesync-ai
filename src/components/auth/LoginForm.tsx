@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, Globe, Code, AlertCircle, CheckCircle2 } from "lucide-react";
 import AuthCard from "./AuthCard";
+import { useAuth } from "@/contexts/AuthContext";
 
 /* ─── shared input ─────────────────────────────────────────── */
 const Field = ({
@@ -56,15 +57,7 @@ const Field = ({
   </div>
 );
 
-/* ─── primary button ───────────────────────────────────────── */
-const PrimaryBtn = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <button
-    type="submit"
-    className={`w-full h-12 bg-[#FF6B00] hover:bg-[#e66000] text-white font-bold rounded-xl shadow-md shadow-[#FF6B00]/25 hover:shadow-lg hover:shadow-[#FF6B00]/35 transition-all duration-200 hover:-translate-y-0.5 text-sm tracking-wide ${className}`}
-  >
-    {children}
-  </button>
-);
+
 
 /* ─── social button ────────────────────────────────────────── */
 const SocialBtn = ({ icon, label }: { icon: React.ReactNode; label: string }) => (
@@ -90,17 +83,20 @@ const Divider = ({ label = "or" }: { label?: string }) => (
 const LoginFormContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [error, setError] = useState("");
   const infoMessage = searchParams.get("message") || "";
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError("");
 
     // Validate inputs
@@ -123,14 +119,30 @@ const LoginFormContent = () => {
       return;
     }
 
-    if (typeof window !== "undefined") {
-      const parts = email.split("@");
-      const derivedName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-      localStorage.setItem("fullName", derivedName);
-      localStorage.setItem("username", parts[0]);
-    }
-    // Success -> redirect to /dashboard
-    router.push("/dashboard");
+    setIsSubmitting(true);
+    login(email, password)
+      .then((userCredential) => {
+        const u = userCredential.user;
+        if (typeof window !== "undefined") {
+          const parts = u.email?.split("@") || ["Rider"];
+          const derivedName = u.displayName || parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+          localStorage.setItem("fullName", derivedName);
+          localStorage.setItem("username", parts[0]);
+        }
+        router.push("/dashboard");
+      })
+      .catch((err) => {
+        let message = "Invalid email or password. Please try again.";
+        if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+          message = "Incorrect email or password.";
+        } else if (err.code === "auth/too-many-requests") {
+          message = "Too many failed login attempts. Please try again later.";
+        }
+        setError(message);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   return (
@@ -210,7 +222,15 @@ const LoginFormContent = () => {
         </div>
 
         <div className="animate-fade-in-up delay-225">
-          <PrimaryBtn>Continue Journey →</PrimaryBtn>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`w-full h-12 bg-[#FF6B00] hover:bg-[#e66000] text-white font-bold rounded-xl shadow-md shadow-[#FF6B00]/25 hover:shadow-lg hover:shadow-[#FF6B00]/35 transition-all duration-200 hover:-translate-y-0.5 text-sm tracking-wide flex items-center justify-center gap-2 ${
+              isSubmitting ? "opacity-75 cursor-not-allowed" : ""
+            }`}
+          >
+            {isSubmitting ? "Signing In..." : "Continue Journey →"}
+          </button>
         </div>
 
         <Divider />

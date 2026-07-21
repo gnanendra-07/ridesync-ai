@@ -5,14 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, ArrowLeft, SendHorizonal, AlertCircle } from "lucide-react";
 import AuthCard from "./AuthCard";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ForgotPasswordForm = () => {
   const router = useRouter();
+  const { resetPassword } = useAuth();
   const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const handleForgotPassword = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError("");
 
     if (!email) {
@@ -25,8 +29,21 @@ const ForgotPasswordForm = () => {
       return;
     }
 
-    // Success -> Redirect to verify-otp with a success message query param
-    router.push("/verify-otp?message=Verification+OTP+sent+to+your+email.");
+    setIsSubmitting(true);
+    resetPassword(email)
+      .then(() => {
+        router.push("/login?message=Password+reset+email+sent+successfully.");
+      })
+      .catch((err) => {
+        let message = "Failed to send password reset email. Please check your address.";
+        if (err.code === "auth/user-not-found") {
+          message = "No user found with this email address.";
+        }
+        setError(message);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   return (
@@ -64,10 +81,13 @@ const ForgotPasswordForm = () => {
 
         <button
           type="submit"
-          className="w-full h-12 bg-[#FF6B00] hover:bg-[#e66000] text-white font-bold rounded-xl shadow-md shadow-[#FF6B00]/25 hover:shadow-lg hover:shadow-[#FF6B00]/35 transition-all duration-200 hover:-translate-y-0.5 text-sm tracking-wide flex items-center justify-center gap-2 animate-fade-in-up delay-75"
+          disabled={isSubmitting}
+          className={`w-full h-12 bg-[#FF6B00] hover:bg-[#e66000] text-white font-bold rounded-xl shadow-md shadow-[#FF6B00]/25 hover:shadow-lg hover:shadow-[#FF6B00]/35 transition-all duration-200 hover:-translate-y-0.5 text-sm tracking-wide flex items-center justify-center gap-2 animate-fade-in-up delay-75 ${
+            isSubmitting ? "opacity-75 cursor-not-allowed" : ""
+          }`}
         >
           <SendHorizonal className="w-4 h-4" />
-          Send OTP Verification
+          {isSubmitting ? "Sending Reset Email..." : "Send Reset Email"}
         </button>
 
         <Link

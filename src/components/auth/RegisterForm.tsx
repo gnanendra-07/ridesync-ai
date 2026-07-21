@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User, Phone, AtSign, AlertCircle } from "lucide-react";
 import AuthCard from "./AuthCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const Field = ({
   label,
@@ -47,6 +51,7 @@ const Field = ({
 
 const RegisterForm = () => {
   const router = useRouter();
+  const { signup } = useAuth();
   
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -58,10 +63,12 @@ const RegisterForm = () => {
 
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError("");
 
     if (!fullName) {
@@ -85,7 +92,6 @@ const RegisterForm = () => {
       setError("Mobile number is required.");
       return;
     }
-    // Simple phone verification (accepts optional leading +, then digits/spaces/hyphens)
     const phoneRegex = /^\+?[0-9\s\-]{8,15}$/;
     if (!phoneRegex.test(mobile)) {
       setError("Please enter a valid mobile number.");
@@ -108,12 +114,46 @@ const RegisterForm = () => {
       return;
     }
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("fullName", fullName);
-      localStorage.setItem("username", username);
-    }
-    // Success -> Redirect to OTP page
-    router.push("/verify-otp");
+    setIsSubmitting(true);
+    signup(email, password)
+      .then(async (userCredential) => {
+        const u = userCredential.user;
+        
+        try {
+          await updateProfile(u, { displayName: fullName });
+          await setDoc(doc(db, "users", u.uid), {
+            uid: u.uid,
+            fullName,
+            username,
+            email,
+            mobile,
+            createdAt: new Date().toISOString()
+          });
+        } catch (dbErr) {
+          console.error("Error writing user profile to Firestore:", dbErr);
+        }
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("fullName", fullName);
+          localStorage.setItem("username", username);
+          localStorage.setItem("ridesync_rider_email", email);
+          localStorage.setItem("ridesync_rider_phone", mobile);
+        }
+
+        router.push("/verify-otp");
+      })
+      .catch((err) => {
+        let message = "Failed to create account. Please try again.";
+        if (err.code === "auth/email-already-in-use") {
+          message = "Email is already registered. Please login instead.";
+        } else if (err.code === "auth/weak-password") {
+          message = "Password is too weak. Please use a stronger password.";
+        }
+        setError(message);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
   return (
@@ -231,9 +271,12 @@ const RegisterForm = () => {
 
         <button
           type="submit"
-          className="w-full h-12 bg-[#FF6B00] hover:bg-[#e66000] text-white font-bold rounded-xl shadow-md shadow-[#FF6B00]/25 hover:shadow-lg hover:shadow-[#FF6B00]/35 transition-all duration-200 hover:-translate-y-0.5 text-sm tracking-wide animate-fade-in-up delay-375"
+          disabled={isSubmitting}
+          className={`w-full h-12 bg-[#FF6B00] hover:bg-[#e66000] text-white font-bold rounded-xl shadow-md shadow-[#FF6B00]/25 hover:shadow-lg hover:shadow-[#FF6B00]/35 transition-all duration-200 hover:-translate-y-0.5 text-sm tracking-wide animate-fade-in-up delay-375 flex items-center justify-center gap-2 ${
+            isSubmitting ? "opacity-75 cursor-not-allowed" : ""
+          }`}
         >
-          Create Adventure Account →
+          {isSubmitting ? "Registering..." : "Create Adventure Account →"}
         </button>
 
         <p className="text-center text-sm text-gray-400 animate-fade-in-up delay-375">
