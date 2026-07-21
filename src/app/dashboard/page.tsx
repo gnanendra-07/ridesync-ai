@@ -2571,6 +2571,24 @@ interface LocationSuggestion {
       : "bg-white/90 border-black/8 text-[#0B1520] shadow-black/5"
   }`;
 
+  if (!isLoadedFromCloud && user) {
+    return (
+      <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center backdrop-blur-3xl theme-transition ${
+        headlightOn ? "bg-[#060D15] text-white" : "bg-[#F0F2F5] text-[#0B1520]"
+      }`}>
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6B00] to-orange-600 p-[1.5px] shadow-lg shadow-[#FF6B00]/25 animate-pulse mb-6 flex items-center justify-center">
+          <div className={`w-full h-full rounded-[14px] flex items-center justify-center theme-transition ${
+            headlightOn ? "bg-[#060D15]" : "bg-white"
+          }`}>
+            <Map className="w-8 h-8 text-[#FF6B00] animate-spin" />
+          </div>
+        </div>
+        <h2 className="text-sm font-black tracking-widest uppercase">Initializing Telemetry</h2>
+        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider mt-1.5 animate-pulse">Syncing satellite link...</p>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`min-h-screen theme-transition flex relative overflow-x-hidden ${
