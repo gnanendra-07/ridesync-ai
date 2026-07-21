@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -38,6 +38,13 @@ import {
   Thermometer,
   Star,
   Heart,
+  Info,
+  Save,
+  Upload,
+  Volume2,
+  Shield,
+  Mail,
+  User,
 } from "lucide-react";
 import type L from "leaflet";
 
@@ -838,6 +845,24 @@ export default function DashboardPage() {
   const [displayName, setDisplayName] = useState("Adventure Pilot");
   const [username, setUsername] = useState("Explorer");
   const [userInitials, setUserInitials] = useState("AP");
+  const [riderEmail, setRiderEmail] = useState("pilot@ridesync.ai");
+  const [riderPhone, setRiderPhone] = useState("+91-98765-43210");
+  const [riderBloodGroup, setRiderBloodGroup] = useState("O+");
+  const [riderBio, setRiderBio] = useState("Himalayan tourer, mountain explorer, asphalt enthusiast.");
+
+  // Preferences Units
+  const [distanceUnit, setDistanceUnit] = useState<"km" | "mi">("km");
+  const [tempUnit, setTempUnit] = useState<"°C" | "°F">("°C");
+
+  // Map & Route Settings
+  const [mapTileProvider, setMapTileProvider] = useState<"osm" | "carto" | "topo">("osm");
+  const [defaultRouteMode, setDefaultRouteMode] = useState<"Scenic" | "Fastest" | "Highway">("Scenic");
+
+  // Notification Preferences
+  const [notifPush, setNotifPush] = useState<boolean>(true);
+  const [notifEmail, setNotifEmail] = useState<boolean>(true);
+  const [notifSosAlerts, setNotifSosAlerts] = useState<boolean>(true);
+  const [notifSound, setNotifSound] = useState<boolean>(true);
 
   // Headlight theme (ON = Night/Dark Mode, OFF = Day/Light Mode)
   const [headlightOn, setHeadlightOn] = useState<boolean>(true);
@@ -1034,6 +1059,9 @@ interface LocationSuggestion {
   // Offline Safety Guide accordion
   const [openSafetySection, setOpenSafetySection] = useState<string | null>(null);
 
+  // Settings states
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
   // Leaflet refs
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -1131,6 +1159,24 @@ interface LocationSuggestion {
         if (parsedPacking && parsedPacking.length > 0) {
           setPackingItems(parsedPacking);
         }
+
+        // Load Rider profile details
+        setRiderEmail(localStorage.getItem("ridesync_rider_email") || "pilot@ridesync.ai");
+        setRiderPhone(localStorage.getItem("ridesync_rider_phone") || "+91-98765-43210");
+        setRiderBloodGroup(localStorage.getItem("ridesync_rider_blood") || "O+");
+        setRiderBio(localStorage.getItem("ridesync_rider_bio") || "Himalayan tourer, mountain explorer, asphalt enthusiast.");
+
+        // Load Units & Preferences
+        setDistanceUnit((localStorage.getItem("ridesync_distance_unit") as "km" | "mi") || "km");
+        setTempUnit((localStorage.getItem("ridesync_temp_unit") as "°C" | "°F") || "°C");
+        setMapTileProvider((localStorage.getItem("ridesync_map_provider") as "osm" | "carto" | "topo") || "osm");
+        setDefaultRouteMode((localStorage.getItem("ridesync_default_route_mode") as "Scenic" | "Fastest" | "Highway") || "Scenic");
+
+        // Load Notification toggles
+        setNotifPush(localStorage.getItem("ridesync_notif_push") !== "false");
+        setNotifEmail(localStorage.getItem("ridesync_notif_email") !== "false");
+        setNotifSosAlerts(localStorage.getItem("ridesync_notif_sos") !== "false");
+        setNotifSound(localStorage.getItem("ridesync_notif_sound") !== "false");
 
         // Load emergency contacts
         const storedContacts = localStorage.getItem("ridesync_sos_contacts");
@@ -1477,9 +1523,18 @@ interface LocationSuggestion {
     const L = leafletL;
     let map = mapInstanceRef.current;
 
-    const tilesUrl = headlightOn
-      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    let tilesUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    if (mapTileProvider === "carto") {
+      tilesUrl = headlightOn
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+    } else if (mapTileProvider === "topo") {
+      tilesUrl = "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png";
+    } else {
+      tilesUrl = headlightOn
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    }
 
     const coords = activeRouteData.coordinates;
 
@@ -1588,7 +1643,7 @@ interface LocationSuggestion {
       clearTimeout(invalidateTimer);
       resizeObserver.disconnect();
     };
-  }, [activeTab, leafletL, activeRouteData, headlightOn, routeStart, routeEnd]);
+  }, [activeTab, leafletL, activeRouteData, headlightOn, routeStart, routeEnd, mapTileProvider]);
 
   // Handle map cleanup when switching tabs or unmounting
   useEffect(() => {
@@ -2151,6 +2206,107 @@ interface LocationSuggestion {
         }`,
       },
     ]);
+  };
+
+  // Rider Profile Update
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (typeof window !== "undefined") {
+      localStorage.setItem("fullName", displayName);
+      localStorage.setItem("username", username);
+      localStorage.setItem("ridesync_rider_email", riderEmail);
+      localStorage.setItem("ridesync_rider_phone", riderPhone);
+      localStorage.setItem("ridesync_rider_blood", riderBloodGroup);
+      localStorage.setItem("ridesync_rider_bio", riderBio);
+    }
+    const initials = displayName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+    setUserInitials(initials || "AP");
+    alert("Rider Profile updated successfully!");
+  };
+
+  // Settings & Preferences Update
+  const handleSavePreferences = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ridesync_distance_unit", distanceUnit);
+      localStorage.setItem("ridesync_temp_unit", tempUnit);
+      localStorage.setItem("ridesync_map_provider", mapTileProvider);
+      localStorage.setItem("ridesync_default_route_mode", defaultRouteMode);
+      
+      localStorage.setItem("ridesync_notif_push", String(notifPush));
+      localStorage.setItem("ridesync_notif_email", String(notifEmail));
+      localStorage.setItem("ridesync_notif_sos", String(notifSosAlerts));
+      localStorage.setItem("ridesync_notif_sound", String(notifSound));
+    }
+    alert("Preferences saved successfully!");
+  };
+
+  // Export all RideSync data as JSON
+  const handleExportAllData = () => {
+    if (typeof window === "undefined") return;
+    const keys = [
+      "fullName", "username", "activeBike", "headlightTheme", "openWeatherApiKey",
+      "lastWeatherLocation", "ridesync_motorcycles", "ridesync_journal",
+      "ridesync_packing", "ridesync_sos_contacts", "ridesync_rider_email",
+      "ridesync_rider_phone", "ridesync_rider_blood", "ridesync_rider_bio",
+      "ridesync_distance_unit", "ridesync_temp_unit", "ridesync_map_provider",
+      "ridesync_default_route_mode", "ridesync_notif_push", "ridesync_notif_email",
+      "ridesync_notif_sos", "ridesync_notif_sound"
+    ];
+    const exportData: Record<string, string | null> = {};
+    keys.forEach((key) => {
+      exportData[key] = localStorage.getItem(key);
+    });
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ridesync_all_data_export_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Import data from JSON
+  const handleImportAllData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (parsed && typeof parsed === "object") {
+          Object.keys(parsed).forEach((key) => {
+            if (parsed[key] !== null && parsed[key] !== undefined) {
+              localStorage.setItem(key, String(parsed[key]));
+            }
+          });
+          alert("RideSync data imported successfully! Page will reload to apply your changes.");
+          window.location.reload();
+        } else {
+          alert("Failed to import: Invalid data format.");
+        }
+      } catch {
+        alert("Failed to import data: File is not valid JSON.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Clear all local data
+  const handleClearAllData = () => {
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+      alert("All local data cleared. Redirecting you to login...");
+      router.push("/login");
+    }
   };
 
   // Logout
@@ -4472,9 +4628,9 @@ interface LocationSuggestion {
                                 ],
                               },
                               {
-                                id: "tyre", title: "Tyre Puncture Procedure", icon: "ðŸ›ž",
+                                id: "tyre", title: "Tyre Puncture Procedure", icon: "🛞",
                                 steps: [
-                                  "Grip handlebars firmly â€” do NOT brake suddenly.",
+                                  "Grip handlebars firmly — do NOT brake suddenly.",
                                   "Gradually reduce speed and ease to the road shoulder.",
                                   "Turn on hazard lights / use reflective triangles.",
                                   "Locate your puncture repair kit.",
@@ -4484,11 +4640,11 @@ interface LocationSuggestion {
                                 ],
                               },
                               {
-                                id: "stall", title: "Engine Stall Recovery", icon: "âš¡",
+                                id: "stall", title: "Engine Stall Recovery", icon: "⚡",
                                 steps: [
                                   "Coast to a safe stop on the road shoulder.",
-                                  "Check fuel level â€” empty? Call for fuel delivery.",
-                                  "Check kill switch â€” must be in ON position.",
+                                  "Check fuel level — empty? Call for fuel delivery.",
+                                  "Check kill switch — must be in ON position.",
                                   "Check choke setting for cold weather starts.",
                                   "Inspect spark plug connections for loose contacts.",
                                   "Check battery terminals for corrosion.",
@@ -4515,7 +4671,7 @@ interface LocationSuggestion {
                                   "Whistle: 3 short blasts = distress signal.",
                                   "Bright clothing: spread on open ground for aerial visibility.",
                                   "HELP in stones/snow: arrange large letters in clearing.",
-                                  "Fire signal: 3 fires in triangle â€” universal distress.",
+                                  "Fire signal: 3 fires in triangle — universal distress.",
                                   "GPS: share coordinates from this app with rescue teams.",
                                 ],
                               },
@@ -4551,102 +4707,467 @@ interface LocationSuggestion {
                     </div>
                   )}
 
-                  {/* â”€â”€ 8. SETTINGS TAB (OpenWeather API key setup) â”€â”€ */}
+                  {/* ── 8. SETTINGS TAB ── */}
                   {activeTab === "Settings" && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      
-                      {/* OpenWeather setup */}
-                      <div className={cardClass}>
-                        <h3 className="text-xl font-black mb-6">Meteorological Settings</h3>
-                        <form onSubmit={handleSaveApiKey} className="space-y-4">
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                              OpenWeather Map API Key
-                            </label>
-                            <input
-                              type="text"
-                              value={openWeatherApiKey}
-                              onChange={(e) => setOpenWeatherApiKey(e.target.value)}
-                              placeholder="Enter your appid API key..."
-                              className={`theme-transition border rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-[#FF6B00] ${
-                                headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
-                              }`}
-                            />
-                            <p className="text-[10px] text-gray-500 leading-relaxed font-semibold mt-1">
-                              Paste an OpenWeather API key to load live mountain conditions. If left blank, the dashboard automatically utilizes pre-computed Spiti valley metrics.
-                            </p>
-                          </div>
-                          <button
-                            type="submit"
-                            className="px-5 py-2.5 bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-black rounded-xl shadow shadow-[#FF6B00]/25 transition-all"
-                          >
-                            Save API Key
-                          </button>
-                        </form>
+                    <div className="space-y-8">
+                      {/* Header */}
+                      <div>
+                        <h2 className="text-2xl font-black">Settings &amp; User Preferences</h2>
+                        <p className="text-xs text-gray-400 font-semibold mt-1">Configure your pilot profile, units, navigation map styles, notification feeds, and local backups.</p>
                       </div>
 
-                      {/* App preferences settings */}
-                      <div className={cardClass}>
-                        <h3 className="text-xl font-black mb-6">Preferences</h3>
-                        <div className="space-y-5">
-                          {/* Theme settings */}
-                          <div className="flex items-center justify-between p-4 rounded-2xl bg-black/15 border border-white/5">
-                            <div>
-                              <p className="text-sm font-black">Headlight Theme</p>
-                              <p className="text-[10px] text-gray-400 font-medium mt-0.5">Switch between Day and Night mode</p>
+                      {/* Main Settings Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        
+                        {/* Section 1: Rider Profile */}
+                        <div className={cardClass}>
+                          <div className="flex items-center gap-2 mb-6 border-b border-gray-400/10 pb-4">
+                            <User className="w-5 h-5 text-[#FF6B00]" />
+                            <h3 className="text-base font-black">Rider Profile</h3>
+                          </div>
+                          
+                          <form onSubmit={handleSaveProfile} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black uppercase text-gray-400">Full Name</label>
+                                <input
+                                  type="text"
+                                  value={displayName}
+                                  onChange={(e) => setDisplayName(e.target.value)}
+                                  className={`theme-transition border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                    headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                  }`}
+                                />
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black uppercase text-gray-400">Username</label>
+                                <input
+                                  type="text"
+                                  value={username}
+                                  onChange={(e) => setUsername(e.target.value)}
+                                  className={`theme-transition border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                    headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black uppercase text-gray-400">Email Address</label>
+                                <input
+                                  type="email"
+                                  value={riderEmail}
+                                  onChange={(e) => setRiderEmail(e.target.value)}
+                                  className={`theme-transition border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                    headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                  }`}
+                                />
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black uppercase text-gray-400">Phone / Sat Connection</label>
+                                <input
+                                  type="text"
+                                  value={riderPhone}
+                                  onChange={(e) => setRiderPhone(e.target.value)}
+                                  className={`theme-transition border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                    headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Emergency Blood Group</label>
+                              <select
+                                value={riderBloodGroup}
+                                onChange={(e) => setRiderBloodGroup(e.target.value)}
+                                className={`theme-transition border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                  headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                }`}
+                              >
+                                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
+                                  <option key={bg} value={bg} className={headlightOn ? "bg-[#0b131f] text-white" : "bg-white text-black"}>{bg}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Bio &amp; Rider Description</label>
+                              <textarea
+                                value={riderBio}
+                                onChange={(e) => setRiderBio(e.target.value)}
+                                rows={2}
+                                className={`theme-transition border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                  headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                }`}
+                              />
+                            </div>
+
+                            <button
+                              type="submit"
+                              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5"
+                            >
+                              <Save className="w-3.5 h-3.5" /> Save Rider Profile
+                            </button>
+                          </form>
+                        </div>
+
+                        {/* Section 2: Preferences & Units */}
+                        <div className={cardClass}>
+                          <div className="flex items-center gap-2 mb-6 border-b border-gray-400/10 pb-4">
+                            <Compass className="w-5 h-5 text-[#FF6B00]" />
+                            <h3 className="text-base font-black">Ride Preferences &amp; Units</h3>
+                          </div>
+
+                          <form onSubmit={handleSavePreferences} className="space-y-5">
+                            {/* Units Toggles */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black uppercase text-gray-400">Distance Units</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(["km", "mi"] as const).map((unit) => (
+                                    <button
+                                      key={unit}
+                                      type="button"
+                                      onClick={() => setDistanceUnit(unit)}
+                                      className={`py-2 text-xs font-black rounded-xl border transition-all ${
+                                        distanceUnit === unit
+                                          ? "bg-[#FF6B00]/10 border-[#FF6B00]/30 text-[#FF6B00]"
+                                          : headlightOn ? "border-white/5 hover:bg-white/5 text-white/60" : "border-black/5 hover:bg-black/5 text-gray-500"
+                                      }`}
+                                    >
+                                      {unit.toUpperCase()}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-black uppercase text-gray-400">Temperature Units</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(["°C", "°F"] as const).map((unit) => (
+                                    <button
+                                      key={unit}
+                                      type="button"
+                                      onClick={() => setTempUnit(unit)}
+                                      className={`py-2 text-xs font-black rounded-xl border transition-all ${
+                                        tempUnit === unit
+                                          ? "bg-[#FF6B00]/10 border-[#FF6B00]/30 text-[#FF6B00]"
+                                          : headlightOn ? "border-white/5 hover:bg-white/5 text-white/60" : "border-black/5 hover:bg-black/5 text-gray-500"
+                                      }`}
+                                    >
+                                      {unit}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Default Route Option */}
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Default Route Mode</label>
+                              <select
+                                value={defaultRouteMode}
+                                onChange={(e) => setDefaultRouteMode(e.target.value as "Scenic" | "Fastest" | "Highway")}
+                                className={`theme-transition border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                  headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                }`}
+                              >
+                                {["Scenic", "Fastest", "Highway"].map((mode) => (
+                                  <option key={mode} value={mode} className={headlightOn ? "bg-[#0b131f] text-white" : "bg-white text-black"}>{mode}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Active Motorcycle */}
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Default Motorcycle</label>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {motorcyclesList.map((bike) => (
+                                  <button
+                                    key={bike.id}
+                                    type="button"
+                                    onClick={() => handleSelectBike(bike)}
+                                    className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold transition-all border ${
+                                      activeBike.id === bike.id
+                                        ? "bg-[#FF6B00]/10 border-[#FF6B00]/30 text-[#FF6B00]"
+                                        : headlightOn ? "border-white/5 hover:bg-white/5 text-white/60" : "border-black/5 hover:bg-black/5 text-gray-500"
+                                    }`}
+                                  >
+                                    <Bike className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <span className="truncate">{bike.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <button
+                              type="submit"
+                              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5"
+                            >
+                              <Save className="w-3.5 h-3.5" /> Save Ride Preferences
+                            </button>
+                          </form>
+                        </div>
+
+                        {/* Section 3: Theme & Map Settings */}
+                        <div className={cardClass}>
+                          <div className="flex items-center gap-2 mb-6 border-b border-gray-400/10 pb-4">
+                            <Map className="w-5 h-5 text-[#FF6B00]" />
+                            <h3 className="text-base font-black">Theme &amp; Map Settings</h3>
+                          </div>
+
+                          <div className="space-y-4">
+                            {/* Headlight Mode */}
+                            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/15 border border-white/5">
+                              <div>
+                                <p className="text-xs font-black">Headlight Theme</p>
+                                <p className="text-[9px] text-gray-400 font-medium mt-0.5">Switch day (light) and night (dark) views</p>
+                              </div>
+                              <button
+                                onClick={handleToggleHeadlight}
+                                className={`relative flex items-center rounded-xl overflow-hidden border transition-all duration-500 ${
+                                  headlightOn ? "border-[#FF6B00]/35" : "border-black/10"
+                                }`}
+                              >
+                                <div className={`flex items-center gap-1 px-2.5 py-1.5 transition-all duration-500 ${!headlightOn ? "bg-amber-55 text-amber-700 font-bold" : "bg-black/20 text-white/20"}`}>
+                                  <Sun className="w-3 h-3" />
+                                  <span className="text-[9px] font-black">Day</span>
+                                </div>
+                                <div className={`flex items-center gap-1 px-2.5 py-1.5 transition-all duration-500 ${headlightOn ? "bg-[#FF6B00]/15 text-[#FF6B00] font-bold" : "bg-white/10 text-gray-400"}`}>
+                                  <Zap className="w-3 h-3" />
+                                  <span className="text-[9px] font-black">Night</span>
+                                </div>
+                              </button>
+                            </div>
+
+                            {/* Map Provider Selector */}
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Map Tile Provider</label>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { value: "osm", label: "OpenStreetMap" },
+                                  { value: "carto", label: "CARTO Matter" },
+                                  { value: "topo", label: "OpenTopoMap" },
+                                ].map((prov) => (
+                                  <button
+                                    key={prov.value}
+                                    type="button"
+                                    onClick={() => setMapTileProvider(prov.value as "osm" | "carto" | "topo")}
+                                    className={`py-2 text-[10px] font-black rounded-xl border transition-all ${
+                                      mapTileProvider === prov.value
+                                        ? "bg-[#FF6B00]/10 border-[#FF6B00]/30 text-[#FF6B00]"
+                                        : headlightOn ? "border-white/5 hover:bg-white/5 text-white/60" : "border-black/5 hover:bg-black/5 text-gray-500"
+                                    }`}
+                                  >
+                                    {prov.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-[9px] text-gray-500 font-semibold mt-1">
+                                Map provider tiles update dynamically on your Route Planner map views.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Section 4: Meteorological Settings */}
+                        <div className={cardClass}>
+                          <div className="flex items-center gap-2 mb-6 border-b border-gray-400/10 pb-4">
+                            <Cloud className="w-5 h-5 text-[#FF6B00]" />
+                            <h3 className="text-base font-black">Meteorological Settings</h3>
+                          </div>
+
+                          <form onSubmit={handleSaveApiKey} className="space-y-4">
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">OpenWeather Map API Key</label>
+                              <input
+                                type="text"
+                                value={openWeatherApiKey}
+                                onChange={(e) => setOpenWeatherApiKey(e.target.value)}
+                                placeholder="Enter your OpenWeather appid..."
+                                className={`theme-transition border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                  headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                }`}
+                              />
+                              <p className="text-[9px] text-gray-500 font-semibold leading-relaxed mt-1">
+                                Paste your API key to load live mountain radar feeds. If blank, RideSync defaults to Spiti valley simulated pass conditions.
+                              </p>
                             </div>
                             <button
-                              onClick={handleToggleHeadlight}
-                              className={`relative flex items-center rounded-xl overflow-hidden border transition-all duration-700 ${
-                                headlightOn ? "border-[#FF6B00]/35" : "border-black/10"
-                              }`}
+                              type="submit"
+                              className="px-5 py-2.5 bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-black rounded-xl transition-all"
                             >
-                              <div className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-700 ${!headlightOn ? "bg-amber-50 text-amber-700" : "bg-black/20 text-white/25"}`}>
-                                <Sun className="w-3.5 h-3.5" />
-                                <span className="text-[10px] font-black">Day</span>
-                              </div>
-                              <div className={`w-px self-stretch transition-colors duration-700 ${headlightOn ? "bg-[#FF6B00]/20" : "bg-black/10"}`} />
-                              <div className={`flex items-center gap-1.5 px-3 py-2 transition-all duration-700 ${headlightOn ? "bg-[#FF6B00]/15 text-[#FF6B00]" : "bg-white/10 text-gray-400"}`}>
-                                <Zap className={`w-3.5 h-3.5 ${headlightOn ? "fill-[#FF6B00]" : ""}`} />
-                                <span className="text-[10px] font-black">Night</span>
-                              </div>
+                              Save API Key
                             </button>
+                          </form>
+                        </div>
+
+                        {/* Section 5: Notification Preferences */}
+                        <div className={cardClass}>
+                          <div className="flex items-center gap-2 mb-6 border-b border-gray-400/10 pb-4">
+                            <Bell className="w-5 h-5 text-[#FF6B00]" />
+                            <h3 className="text-base font-black">Notification Settings</h3>
                           </div>
 
-                          {/* Active Bike selector */}
-                          <div className="p-4 rounded-2xl bg-black/15 border border-white/5">
-                            <p className="text-sm font-black mb-3">Active Motorcycle</p>
-                            <div className="grid grid-cols-1 gap-2">
-                              {MOTORCYCLES.map((bike) => (
+                          <div className="space-y-3">
+                            {[
+                              { label: "Push Notifications", desc: "Real-time navigation and speed alarms", state: notifPush, setter: setNotifPush, icon: <Compass className="w-3.5 h-3.5 text-sky-400" /> },
+                              { label: "Email Alerts", desc: "Weekly ride summary reports and backup syncs", state: notifEmail, setter: setNotifEmail, icon: <Mail className="w-3.5 h-3.5 text-emerald-400" /> },
+                              { label: "SOS Incident Feeds", desc: "High-priority crash & distress satellite alerts", state: notifSosAlerts, setter: setNotifSosAlerts, icon: <Shield className="w-3.5 h-3.5 text-red-400" /> },
+                              { label: "Alert Sound FX", desc: "Acoustic audio cues for radar warnings", state: notifSound, setter: setNotifSound, icon: <Volume2 className="w-3.5 h-3.5 text-amber-400" /> },
+                            ].map((item) => (
+                              <div key={item.label} className="flex items-center justify-between p-3 rounded-xl bg-black/15 border border-white/5">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-7 h-7 rounded-lg bg-black/20 border border-white/5 flex items-center justify-center flex-shrink-0">
+                                    {item.icon}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-black">{item.label}</p>
+                                    <p className="text-[9px] text-gray-500 font-semibold">{item.desc}</p>
+                                  </div>
+                                </div>
                                 <button
-                                  key={bike.id}
-                                  onClick={() => handleSelectBike(bike)}
-                                  className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-semibold transition-all border ${
-                                    activeBike.id === bike.id
-                                      ? "bg-[#FF6B00]/10 border-[#FF6B00]/30 text-[#FF6B00]"
-                                      : headlightOn
-                                      ? "border-white/5 hover:bg-white/5 text-white/60 hover:text-white"
-                                      : "border-black/5 hover:bg-black/5 text-gray-500 hover:text-[#0B1520]"
+                                  type="button"
+                                  onClick={() => item.setter(!item.state)}
+                                  className={`w-10 h-6 rounded-full p-0.5 transition-all duration-300 ${
+                                    item.state ? "bg-[#FF6B00]" : "bg-gray-700"
                                   }`}
                                 >
-                                  <Bike className={`w-4 h-4 flex-shrink-0 ${activeBike.id === bike.id ? "text-[#FF6B00]" : ""}`} />
-                                  <span className="truncate">{bike.name}</span>
-                                  {activeBike.id === bike.id && <span className="ml-auto text-[8px] font-black bg-[#FF6B00] text-white px-2 py-0.5 rounded-full">Active</span>}
+                                  <div className={`w-5 h-5 rounded-full bg-white transition-all duration-300 transform ${
+                                    item.state ? "translate-x-4" : "translate-x-0"
+                                  }`} />
                                 </button>
-                              ))}
-                            </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Section 6: Backup & Data Operations */}
+                        <div className={cardClass}>
+                          <div className="flex items-center gap-2 mb-6 border-b border-gray-400/10 pb-4">
+                            <FileDown className="w-5 h-5 text-[#FF6B00]" />
+                            <h3 className="text-base font-black">Local Backups &amp; Data Control</h3>
                           </div>
 
-                          {/* Logout button */}
-                          <button
-                            onClick={handleLogout}
-                            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-black text-red-400 border border-red-500/20 hover:bg-red-50/10 hover:border-red-500/35 transition-all duration-200"
-                          >
-                            <LogOut className="w-4 h-4" />
-                            Logout Account
-                          </button>
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {/* Export JSON */}
+                              <button
+                                type="button"
+                                onClick={handleExportAllData}
+                                className="py-2.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 text-sky-400 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5"
+                              >
+                                <FileDown className="w-4 h-4" /> Export Data (JSON)
+                              </button>
+
+                              {/* Import JSON */}
+                              <label className="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center">
+                                <Upload className="w-4 h-4" /> Import Data (JSON)
+                                <input
+                                  type="file"
+                                  accept=".json"
+                                  onChange={handleImportAllData}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+
+                            <div className="border-t border-white/5 pt-4 space-y-3">
+                              {/* Clear Storage */}
+                              <button
+                                type="button"
+                                onClick={() => setShowClearConfirm(true)}
+                                className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 text-red-400 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5"
+                              >
+                                <Trash2 className="w-4 h-4" /> Clear All Local Data
+                              </button>
+
+                              {/* Logout */}
+                              <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="w-full py-3 bg-black/45 border border-white/5 hover:bg-white/5 text-gray-400 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5"
+                              >
+                                <LogOut className="w-4 h-4" /> Logout Account
+                              </button>
+                            </div>
+                          </div>
                         </div>
+
                       </div>
+
+                      {/* Section 7: About RideSync */}
+                      <div className={cardClass}>
+                        <div className="flex items-center gap-2 mb-4 border-b border-gray-400/10 pb-4">
+                          <Info className="w-5 h-5 text-[#FF6B00]" />
+                          <h3 className="text-base font-black">About RideSync AI</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-gray-400">
+                          <div>
+                            <p className="font-bold text-white mb-1">Release Version</p>
+                            <p className="font-semibold text-gray-500">v1.4.2-Himalayan (Production)</p>
+                            <p className="font-semibold text-gray-500 mt-2">Active telemetry sync link established via Himalayan Rescue Command.</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-white mb-1">Telemetry Sync Status</p>
+                            <p className="font-semibold text-emerald-400">Connected &amp; Secure (Iridium-9)</p>
+                            <p className="font-semibold text-gray-500 mt-2">Designed for motorcycle tours in high-altitude extreme terrain environments.</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-white mb-1">Rescue Support Registry</p>
+                            <p className="font-semibold text-gray-500">Official Himalayan Rescue CMD Satellite Link</p>
+                            <a
+                              href="tel:+91-177-2621401"
+                              className="inline-block mt-2 text-[#FF6B00] hover:underline font-black"
+                            >
+                              Emergency Helpline: +91-177-2621401
+                            </a>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-600 font-semibold text-center border-t border-white/5 mt-6 pt-4">
+                          &copy; 2026 RideSync AI System Command. Built for Himalayan Explorers. All rights reserved.
+                        </p>
+                      </div>
+
+                      {/* Custom Glassmorphism Confirm Modal for Clear Storage */}
+                      {showClearConfirm && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md px-4">
+                          <div className={`w-full max-w-sm rounded-3xl border p-6 text-center ${
+                            headlightOn ? "bg-[#0b1320] border-white/10 text-white" : "bg-white border-black/10 text-black"
+                          }`}>
+                            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-500 mx-auto mb-4">
+                              <AlertTriangle className="w-6 h-6 animate-pulse" />
+                            </div>
+                            <h4 className="text-sm font-black uppercase tracking-wider mb-2">Delete Local Data?</h4>
+                            <p className="text-xs text-gray-400 font-semibold leading-relaxed mb-6">
+                              This will permanently delete your custom motorcycles, journal entries, packing lists, and emergency contacts. This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setShowClearConfirm(false)}
+                                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
+                                  headlightOn ? "bg-white/5 hover:bg-white/10 text-white" : "bg-gray-100 hover:bg-gray-200 text-black"
+                                }`}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowClearConfirm(false);
+                                  handleClearAllData();
+                                }}
+                                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black transition-all"
+                              >
+                                Delete Everything
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
