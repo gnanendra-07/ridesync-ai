@@ -224,8 +224,8 @@ body {
   background-color: #070e17 !important;
 }
 
+/* Night theme tiles filter removed to prevent map blackouts and allow dynamic CARTO Dark Matter tiles */
 .night-theme .leaflet-tile {
-  filter: brightness(0.6) contrast(1.2) saturate(0.8) hue-rotate(200deg);
 }
 
 .leaflet-bar {

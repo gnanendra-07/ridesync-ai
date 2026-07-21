@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -31,6 +31,13 @@ import {
   Clock,
   Send,
   MessageSquare,
+  Sunrise,
+  Sunset,
+  Eye,
+  Gauge,
+  Thermometer,
+  Star,
+  Heart,
 } from "lucide-react";
 import type L from "leaflet";
 
@@ -75,24 +82,39 @@ interface JournalEntry {
   title: string;
   date: string;
   distance: string;
-  leanAngle: string;
+  leanAngle?: string;
   elevation: string;
   notes: string;
   image?: string;
   motorcycle: string;
+  rating?: number;
+  favorite?: boolean;
+  isRoute?: boolean;
+  start?: string;
+  end?: string;
+  coordinates?: [number, number][];
+  option?: "Scenic" | "Fastest" | "Highway";
+  duration?: string;
+  roadType?: string;
+  fuelCost?: number;
+  fuelRequired?: number;
 }
 
 interface SavedRoute {
   id: string;
+  name: string;
   start: string;
   end: string;
+  coordinates: [number, number][];
   option: "Scenic" | "Fastest" | "Highway";
   distance: string;
   duration: string;
   roadType: string;
   elevation: string;
   fuelCost: number;
+  fuelRequired: number;
   date: string;
+  motorcycle: string;
 }
 
 interface PackingItem {
@@ -106,8 +128,11 @@ interface OpenWeatherForecast {
   city: {
     name: string;
     country: string;
+    sunrise: number;
+    sunset: number;
   };
   list: Array<{
+    dt: number;
     main: {
       temp: number;
       feels_like: number;
@@ -117,10 +142,13 @@ interface OpenWeatherForecast {
     wind: {
       speed: number;
     };
+    visibility: number;
     weather: Array<{
       main: string;
       description: string;
+      icon: string;
     }>;
+    pop?: number;
   }>;
 }
 
@@ -229,6 +257,8 @@ const INITIAL_JOURNAL: JournalEntry[] = [
     notes: "Ascending Kunzum Pass was intense. The gravel section was slippery but the motorcycle handled the mud beautifully. Encountered mild engine heat on steep climbs, but kept throttle steady. Camped near Chandratal stream.",
     image: "/hero_rider_standing.png",
     motorcycle: "BMW R1250 GS",
+    rating: 5,
+    favorite: true,
   },
   {
     id: "log-2",
@@ -240,6 +270,8 @@ const INITIAL_JOURNAL: JournalEntry[] = [
     notes: "Rode along the Spiti river beds. Sunlight hitting the red rocks was stunning. Kept speed under 60km/h due to hidden gravel patches. Clear skies, temperature dropping rapidly after 6 PM.",
     image: "/hero_day.png",
     motorcycle: "BMW R1250 GS",
+    rating: 4,
+    favorite: false,
   },
   {
     id: "log-3",
@@ -251,17 +283,31 @@ const INITIAL_JOURNAL: JournalEntry[] = [
     notes: "Attacked the hairpins on the Manali ghat highway. Excellent cornering grip. Rear suspension felt solid in sporty settings. Logged maximum lean angle on turn 14.",
     image: "/hero_rider_ghat.png",
     motorcycle: "KTM Duke 390",
+    rating: 5,
+    favorite: true,
   },
 ];
 
-const WEATHER_HOURLY = [
-  { time: "05:00", temp: "11°C", rain: "2%", wind: "8 km/h", condition: "Clear", icon: "☀️" },
-  { time: "08:00", temp: "14°C", rain: "5%", wind: "11 km/h", condition: "Sunny", icon: "☀️" },
-  { time: "11:00", temp: "19°C", rain: "8%", wind: "16 km/h", condition: "Clear", icon: "☀️" },
-  { time: "14:00", temp: "22°C", rain: "12%", wind: "20 km/h", condition: "Mild Clouds", icon: "⛅" },
-  { time: "17:00", temp: "18°C", rain: "25%", wind: "15 km/h", condition: "Light Shower", icon: "🌦️" },
-  { time: "20:00", temp: "13°C", rain: "10%", wind: "10 km/h", condition: "Clear Night", icon: "🌙" },
-];
+const PACKING_TEMPLATES = {
+  "Mountain Climb": [
+    { id: "t1", name: "Heavy Woolen Socks & Thermals", category: "gear" as const, packed: false },
+    { id: "t2", name: "High-Altitude Oxygen Canister", category: "personal" as const, packed: false },
+    { id: "t3", name: "Chain Pulley & Tow Strap", category: "tools" as const, packed: false },
+    { id: "t4", name: "Warm Balaclava / Neck Gaiter", category: "gear" as const, packed: false },
+  ],
+  "Coastal Cruise": [
+    { id: "t1", name: "Sunscreen & Sunglasses", category: "personal" as const, packed: false },
+    { id: "t2", name: "Microfiber Quick-dry Towel", category: "personal" as const, packed: false },
+    { id: "t3", name: "Visor Cleaner Spray", category: "tools" as const, packed: false },
+    { id: "t4", name: "Lightweight Mesh Riding Jacket", category: "gear" as const, packed: false },
+  ],
+  "Weekend Getaway": [
+    { id: "t1", name: "Casual Clothes & Toiletries", category: "personal" as const, packed: false },
+    { id: "t2", name: "Mobile Charger & Powerbank", category: "personal" as const, packed: false },
+    { id: "t3", name: "Puncture Repair Kit", category: "tools" as const, packed: false },
+    { id: "t4", name: "Copy of Hotel Booking", category: "docs" as const, packed: false },
+  ]
+};
 
 const weatherCondition = {
   temp: "18°C",
@@ -272,13 +318,203 @@ const weatherCondition = {
   visibility: "12 km",
 };
 
-interface RouteData {
-  distance: string;
-  duration: string;
-  roadType: string;
-  elevation: string;
-  coordinates: [number, number][];
-}
+const formatTime = (timestamp: number): string => {
+  if (!timestamp) return "--:--";
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const generateMockForecast = (city: string): OpenWeatherForecast => {
+  const cleanCity = city.replace(/\s*(base\s*camp|camp|circuit|expedition|valley)\s*/i, "").trim() || city;
+  const isSpiti = cleanCity.toLowerCase().includes("spiti") || cleanCity.toLowerCase().includes("kaza");
+  const isLadakh = cleanCity.toLowerCase().includes("ladakh") || cleanCity.toLowerCase().includes("leh");
+  const isGoa = cleanCity.toLowerCase().includes("goa");
+
+  let baseTemp = 18;
+  let humidity = 55;
+  let pressure = 1012;
+  let windSpeed = 3.5;
+  let visibility = 10000;
+  let description = "partly cloudy";
+  let mainCondition = "Clouds";
+  
+  if (isSpiti || isLadakh) {
+    baseTemp = 8;
+    humidity = 35;
+    pressure = 998;
+    windSpeed = 7.2;
+    visibility = 12000;
+    description = "overcast clouds";
+    mainCondition = "Clouds";
+  } else if (isGoa) {
+    baseTemp = 29;
+    humidity = 85;
+    pressure = 1009;
+    windSpeed = 2.4;
+    visibility = 8000;
+    description = "heavy rain";
+    mainCondition = "Rain";
+  }
+
+  const list = [];
+  const now = Math.floor(Date.now() / 1000);
+  for (let i = 0; i < 8; i++) {
+    const dt = now + i * 3 * 3600;
+    const tempVar = Math.sin(i) * 3;
+    list.push({
+      dt,
+      main: {
+        temp: baseTemp + tempVar,
+        feels_like: baseTemp + tempVar - 1.5,
+        humidity: Math.min(100, Math.max(10, humidity + Math.round(Math.sin(i) * 5))),
+        pressure: pressure + Math.round(Math.cos(i) * 2),
+      },
+      wind: {
+        speed: parseFloat((windSpeed + Math.sin(i) * 1.5).toFixed(1)),
+      },
+      visibility,
+      weather: [{
+        main: mainCondition,
+        description: description,
+        icon: mainCondition === "Rain" ? "10d" : "03d",
+      }],
+      pop: mainCondition === "Rain" ? 0.8 : 0.15,
+    });
+  }
+
+  return {
+    city: {
+      name: cleanCity,
+      country: isSpiti || isLadakh || isGoa ? "IN" : "US",
+      sunrise: now - (now % 86400) + 6 * 3600 + 32 * 60,
+      sunset: now - (now % 86400) + 18 * 3600 + 45 * 60,
+    },
+    list,
+  };
+};
+
+const getDailyForecasts = (forecastList: OpenWeatherForecast['list']) => {
+  const daily: OpenWeatherForecast['list'] = [];
+  const datesSeen = new Set<string>();
+
+  for (const item of forecastList) {
+    const date = new Date(item.dt * 1000);
+    const dateString = date.toDateString();
+    const hours = date.getHours();
+    
+    if (!datesSeen.has(dateString)) {
+      datesSeen.add(dateString);
+      daily.push(item);
+    } else {
+      const idx = daily.findIndex(d => new Date(d.dt * 1000).toDateString() === dateString);
+      const existingDate = new Date(daily[idx].dt * 1000);
+      const existingDiff = Math.abs(existingDate.getHours() - 12);
+      const currentDiff = Math.abs(hours - 12);
+      if (currentDiff < existingDiff) {
+        daily[idx] = item;
+      }
+    }
+  }
+  return daily;
+};
+
+const get7DayForecast = (forecastList: OpenWeatherForecast['list'] | null, destName: string) => {
+  if (forecastList && forecastList.length > 0) {
+    const dailyData = getDailyForecasts(forecastList);
+    const results = dailyData.map((item) => {
+      const date = new Date(item.dt * 1000);
+      const dayName = date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      return {
+        day: dayName,
+        temp: `${Math.round(item.main.temp)}°C`,
+        icon: item.weather[0].main === "Rain" ? "🌧️" : item.weather[0].main === "Clouds" ? "⛅" : "☀️",
+        cond: item.weather[0].description,
+      };
+    });
+    
+    while (results.length < 7) {
+      const lastItem = dailyData[dailyData.length - 1] || ({ dt: Date.now() / 1000, main: { temp: 18, feels_like: 16.5, humidity: 55, pressure: 1012 }, wind: { speed: 3.5 }, visibility: 10000, weather: [{ main: "Clouds", description: "cloudy", icon: "03d" }] } as OpenWeatherForecast['list'][number]);
+      const lastDate = new Date(lastItem.dt * 1000);
+      const nextDate = new Date(lastDate);
+      nextDate.setDate(lastDate.getDate() + (results.length - dailyData.length + 1));
+      
+      const dayName = nextDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      const variance = Math.round((Math.random() * 4 - 2));
+      const tempVal = Math.round(lastItem.main.temp) + variance;
+      
+      const conds = [
+        { icon: "☀️", cond: "Sunny Skies" },
+        { icon: "⛅", cond: "Scattered Clouds" },
+        { icon: "🌤️", cond: "Partly Sunny" }
+      ];
+      const selectedCond = conds[results.length % conds.length];
+      
+      results.push({
+        day: dayName,
+        temp: `${tempVal}°C`,
+        icon: selectedCond.icon,
+        cond: selectedCond.cond,
+      });
+    }
+    return results;
+  }
+  
+  const results = [];
+  const baseDate = new Date();
+  const isSpiti = destName.toLowerCase().includes("spiti");
+  const isGoa = destName.toLowerCase().includes("goa");
+  const isLadakh = destName.toLowerCase().includes("ladakh");
+  
+  let tempRange = { min: 15, max: 22 };
+  let defaultConds = [
+    { icon: "🌤️", cond: "Partly Sunny" },
+    { icon: "☀️", cond: "Bright Sunny" },
+    { icon: "⛅", cond: "Scattered Clouds" },
+    { icon: "🌧️", cond: "Light Showers" },
+    { icon: "⛅", cond: "Partly Cloudy" },
+    { icon: "☀️", cond: "Clear Skies" },
+    { icon: "⛈️", cond: "Lightning Storm" }
+  ];
+  
+  if (isSpiti || isLadakh) {
+    tempRange = { min: 5, max: 15 };
+    defaultConds = [
+      { icon: "❄️", cond: "Chilly / Clear" },
+      { icon: "💨", cond: "Gale Winds" },
+      { icon: "⛅", cond: "Overcast" },
+      { icon: "🏔️", cond: "Mountain Snow" },
+      { icon: "☀️", cond: "Clear Sunny" },
+      { icon: "⛅", cond: "Passing Clouds" },
+      { icon: "🌬️", cond: "High Winds" }
+    ];
+  } else if (isGoa) {
+    tempRange = { min: 26, max: 32 };
+    defaultConds = [
+      { icon: "☀️", cond: "Tropical Sun" },
+      { icon: "🌧️", cond: "Heavy Monsoon" },
+      { icon: "⛅", cond: "Humid / Overcast" },
+      { icon: "🌧️", cond: "Coastal Rain" },
+      { icon: "☀️", cond: "Clear Coastal" },
+      { icon: "⛅", cond: "Scattered Clouds" },
+      { icon: "🌤️", cond: "Warm Sun" }
+    ];
+  }
+  
+  for (let i = 0; i < 7; i++) {
+    const nextDate = new Date(baseDate);
+    nextDate.setDate(baseDate.getDate() + i);
+    const dayName = nextDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    const tempVal = Math.floor(Math.random() * (tempRange.max - tempRange.min + 1)) + tempRange.min;
+    const cond = defaultConds[i % defaultConds.length];
+    results.push({
+      day: dayName,
+      temp: `${tempVal}°C / ${tempVal - 6}°C`,
+      icon: cond.icon,
+      cond: cond.cond
+    });
+  }
+  return results;
+};
 
 const getItineraryTitle = (dest: string, style: string, terrain: string): string => {
   const lower = dest.toLowerCase();
@@ -461,90 +697,127 @@ const getGenericItinerary = (dest: string, activeBike: Motorcycle, plannerDurati
   return resultDays;
 };
 
-const getRouteDetails = (
-  start: string,
-  end: string,
-  option: "Scenic" | "Fastest" | "Highway",
-  bike: Motorcycle
-): RouteData => {
-  const isManali = start.toLowerCase().includes("manali") || start.toLowerCase().includes("base");
-  const isKaza = end.toLowerCase().includes("kaza");
-  const bikeTag = bike.brand || "Expedition";
-
-  const baseCoords: Record<"Scenic" | "Fastest" | "Highway", [number, number][]> = {
-    Scenic: [
-      [32.2396, 77.1887], // Manali
-      [32.3716, 77.2452], // Rohtang
-      [32.4019, 77.6369], // Kunzum
-      [32.2276, 78.0706], // Kaza
-    ],
-    Fastest: [
-      [32.2396, 77.1887], // Manali
-      [32.4770, 77.1250], // Sissu
-      [32.3501, 77.5802], // bypass
-      [32.2276, 78.0706], // Kaza
-    ],
-    Highway: [
-      [32.2396, 77.1887],
-      [32.1800, 77.3000],
-      [32.1200, 77.7000],
-      [32.2276, 78.0706],
-    ],
+const getBikeStats = (bike: Motorcycle) => {
+  const tankCap = parseFloat(bike.tank) || 15;
+  const ccVal = parseInt(bike.engineCc) || 350;
+  let mileage = 25;
+  if (ccVal > 1000) mileage = 16;
+  else if (ccVal > 500) mileage = 20;
+  else if (ccVal > 400) mileage = 22;
+  else if (ccVal > 300) mileage = 26;
+  else if (ccVal > 200) mileage = 30;
+  else mileage = 35;
+  
+  const maxRange = Math.round(tankCap * mileage);
+  return {
+    mileage,
+    tankCapacity: tankCap,
+    maxRange
   };
+};
 
-  const resolveCoord = (name: string, fallbackLat: number, fallbackLng: number): [number, number] => {
-    const n = name.toLowerCase();
-    if (n.includes("manali")) return [32.2396, 77.1887];
-    if (n.includes("kaza")) return [32.2276, 78.0706];
-    if (n.includes("rohtang")) return [32.3716, 77.2452];
-    if (n.includes("kunzum")) return [32.4019, 77.6369];
-    if (n.includes("sissu")) return [32.4770, 77.1250];
-    if (n.includes("keylong")) return [32.5711, 77.0266];
-    if (n.includes("chandratal")) return [32.4820, 77.6160];
-    return [fallbackLat, fallbackLng];
-  };
+const fetchRoute = async (start: [number, number], end: [number, number], mode: "Scenic" | "Fastest" | "Highway") => {
+  let routeCoords: [number, number][] = [];
+  let distanceKm = 0;
+  let durationSec = 0;
+  
+  const startLon = start[1];
+  const startLat = start[0];
+  const endLon = end[1];
+  const endLat = end[0];
 
-  const startCoord = resolveCoord(start, 32.2396, 77.1887);
-  const endCoord = resolveCoord(end, 32.2276, 78.0706);
+  let success = false;
 
-  let distance = "";
-  let duration = "";
-  let roadType = "";
-  let elevation = "";
-  let coords: [number, number][] = [];
+  const orsKey = typeof window !== "undefined" ? localStorage.getItem("openRouteServiceApiKey") : null;
+  if (orsKey) {
+    try {
+      const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${orsKey}&start=${startLon},${startLat}&end=${endLon},${endLat}`;
+      if (mode === "Scenic") {
+        const midLat = (startLat + endLat) / 2;
+        const midLon = (startLon + endLon) / 2;
+        const offsetLat = (endLon - startLon) * 0.05;
+        const offsetLon = -(endLat - startLat) * 0.05;
+        const body = {
+          coordinates: [[startLon, startLat], [midLon + offsetLon, midLat + offsetLat], [endLon, endLat]],
+          profile: "driving-car"
+        };
+        const res = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": orsKey
+          },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.features && data.features[0]) {
+            const feat = data.features[0];
+            routeCoords = feat.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+            distanceKm = feat.properties.summary.distance / 1000;
+            durationSec = feat.properties.summary.duration;
+            success = true;
+          }
+        }
+      } else {
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.features && data.features[0]) {
+            const feat = data.features[0];
+            routeCoords = feat.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+            distanceKm = feat.properties.summary.distance / 1000;
+            durationSec = feat.properties.summary.duration;
+            success = true;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("OpenRouteService failed, falling back to OSRM", err);
+    }
+  }
 
-  if (option === "Scenic") {
-    distance = "482 km";
-    duration = "9h 45m";
-    roadType = `Passes (Adventure Ready for ${bikeTag})`;
-    elevation = "4,590 m";
-    coords = isManali && isKaza
-      ? baseCoords.Scenic
-      : [startCoord, [(startCoord[0] + endCoord[0]) / 2 + 0.05, (startCoord[1] + endCoord[1]) / 2 + 0.08], endCoord];
-  } else if (option === "Fastest") {
-    distance = "410 km";
-    duration = "6h 30m";
-    roadType = `Expressway (Bypass for ${bikeTag})`;
-    elevation = "3,120 m";
-    coords = isManali && isKaza
-      ? baseCoords.Fastest
-      : [startCoord, [(startCoord[0] + endCoord[0]) / 2 + 0.03, (startCoord[1] + endCoord[1]) / 2 + 0.02], endCoord];
-  } else {
-    distance = "430 km";
-    duration = "7h 15m";
-    roadType = `Double-lane Highway (Cruising for ${bikeTag})`;
-    elevation = "3,480 m";
-    coords = isManali && isKaza
-      ? baseCoords.Highway
-      : [startCoord, [(startCoord[0] + endCoord[0]) / 2 - 0.02, (startCoord[1] + endCoord[1]) / 2 - 0.04], endCoord];
+  if (!success) {
+    try {
+      let queryCoords = `${startLon},${startLat};${endLon},${endLat}`;
+      if (mode === "Scenic") {
+        const midLat = (startLat + endLat) / 2;
+        const midLon = (startLon + endLon) / 2;
+        const offsetLat = (endLon - startLon) * 0.08;
+        const offsetLon = -(endLat - startLat) * 0.08;
+        queryCoords = `${startLon},${startLat};${midLon + offsetLon},${midLat + offsetLat};${endLon},${endLat}`;
+      } else if (mode === "Highway") {
+        const midLat = (startLat + endLat) / 2;
+        const midLon = (startLon + endLon) / 2;
+        const offsetLat = -(endLon - startLon) * 0.04;
+        const offsetLon = (endLat - startLat) * 0.04;
+        queryCoords = `${startLon},${startLat};${midLon + offsetLon},${midLat + offsetLat};${endLon},${endLat}`;
+      }
+
+      const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${queryCoords}?overview=full&geometries=geojson`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.routes && data.routes[0]) {
+          const route = data.routes[0];
+          routeCoords = route.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+          distanceKm = route.distance / 1000;
+          durationSec = route.duration;
+          success = true;
+        }
+      }
+    } catch (err) {
+      console.error("OSRM Routing failed:", err);
+    }
+  }
+
+  if (!success) {
+    throw new Error("Routing failed. Please verify your internet connection and location inputs.");
   }
 
   return {
-    distance,
-    duration,
-    roadType,
-    elevation,
-    coordinates: coords,
+    coordinates: routeCoords,
+    distanceKm,
+    durationSec
   };
 };
 
@@ -596,6 +869,8 @@ export default function DashboardPage() {
   const [openWeatherApiKey, setOpenWeatherApiKey] = useState("");
   const [weatherForecast, setWeatherForecast] = useState<OpenWeatherForecast | null>(null);
   const [weatherCity, setWeatherCity] = useState("Manali");
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
 
   // AI Trip Planner inputs & generated plan
   const [plannerDestination, setPlannerDestination] = useState("Spiti Valley Circuit");
@@ -609,11 +884,91 @@ export default function DashboardPage() {
   const [routeStart, setRouteStart] = useState("Manali Base Camp");
   const [routeEnd, setRouteEnd] = useState("Kaza Base Camp");
   const [selectedRouteOption, setSelectedRouteOption] = useState<"Scenic" | "Fastest" | "Highway">("Scenic");
-  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
-  const [recentRoutes, setRecentRoutes] = useState<SavedRoute[]>([]);
+  // Saved and recent routes derived from shared journal entries below
+  const [startCoords, setStartCoords] = useState<[number, number]>([32.2396, 77.1887]);
+  const [endCoords, setEndCoords] = useState<[number, number]>([32.2276, 78.0706]);
+  const [fuelPrice, setFuelPrice] = useState(105);
+  const [fuelType, setFuelType] = useState<"Petrol" | "Diesel">("Petrol");
+  const [activeRouteData, setActiveRouteData] = useState<{
+    distance: string;
+    duration: string;
+    roadType: string;
+    elevation: string;
+    coordinates: [number, number][];
+    fuelRequired: number;
+    fuelCost: number;
+    avgSpeed: string;
+    fuelStopsText: string;
+  } | null>(null);
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const [fetchRouteError, setFetchRouteError] = useState<string | null>(null);
+interface LocationSuggestion {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
+  const [startSuggestions, setStartSuggestions] = useState<LocationSuggestion[]>([]);
+  const [endSuggestions, setEndSuggestions] = useState<LocationSuggestion[]>([]);
+  const [startTimer, setStartTimer] = useState<NodeJS.Timeout | null>(null);
+  const [endTimer, setEndTimer] = useState<NodeJS.Timeout | null>(null);
+
+  const routeError = useMemo(() => {
+    if (!routeStart.trim() || !routeEnd.trim()) {
+      return "Locations cannot be empty";
+    }
+    if (routeStart.trim().toLowerCase() === routeEnd.trim().toLowerCase() ||
+        (startCoords[0] === endCoords[0] && startCoords[1] === endCoords[1])) {
+      return "Start and Destination cannot be the same";
+    }
+    return fetchRouteError;
+  }, [routeStart, routeEnd, startCoords, endCoords, fetchRouteError]);
 
   // Journal logs state
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(INITIAL_JOURNAL);
+
+  const savedRoutes: SavedRoute[] = useMemo(() => {
+    return journalEntries
+      .filter((entry) => entry.isRoute)
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.title,
+        start: entry.start || "",
+        end: entry.end || "",
+        coordinates: entry.coordinates || [],
+        option: entry.option || "Scenic",
+        distance: entry.distance.includes("km") ? entry.distance : `${entry.distance} km`,
+        duration: entry.duration || "0m",
+        roadType: entry.roadType || "",
+        elevation: entry.elevation.includes("m") ? entry.elevation : `${entry.elevation} m`,
+        fuelCost: entry.fuelCost || 0,
+        fuelRequired: entry.fuelRequired || 0,
+        date: entry.date,
+        motorcycle: entry.motorcycle
+      }));
+  }, [journalEntries]);
+
+  const recentRoutes = useMemo(() => {
+    return savedRoutes.slice(0, 5);
+  }, [savedRoutes]);
+
+  const journalStats = useMemo(() => {
+    const totalDist = journalEntries.reduce((sum, entry) => sum + (parseFloat(entry.distance) || 0), 0);
+    const avgRating = journalEntries.length > 0 
+      ? (journalEntries.reduce((sum, entry) => sum + (entry.rating || 5), 0) / journalEntries.length).toFixed(1)
+      : "5.0";
+    const maxLean = journalEntries.reduce((max, entry) => Math.max(max, parseInt(entry.leanAngle || "0") || 0), 0);
+    const totalClimb = journalEntries.reduce((sum, entry) => sum + (parseFloat(entry.elevation) || 0), 0);
+    
+    return {
+      totalDistance: totalDist.toLocaleString(),
+      avgRating,
+      maxLean,
+      totalClimb: totalClimb.toLocaleString(),
+      totalRides: journalEntries.length
+    };
+  }, [journalEntries]);
+
   const [showAddJournal, setShowAddJournal] = useState(false);
   const [newJournalTitle, setNewJournalTitle] = useState("");
   const [newJournalDate, setNewJournalDate] = useState("");
@@ -622,6 +977,19 @@ export default function DashboardPage() {
   const [newJournalElev, setNewJournalElev] = useState("");
   const [newJournalNotes, setNewJournalNotes] = useState("");
   const [newJournalImage, setNewJournalImage] = useState("/hero_rider_standing.png");
+  const [newJournalRating, setNewJournalRating] = useState(5);
+  const [newJournalFavorite, setNewJournalFavorite] = useState(false);
+  const [expandedJournalId, setExpandedJournalId] = useState<string | null>(null);
+
+  const handleToggleFavoriteJournal = (id: string) => {
+    const updated = journalEntries.map((entry) =>
+      entry.id === id ? { ...entry, favorite: !entry.favorite } : entry
+    );
+    setJournalEntries(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ridesync_journal", JSON.stringify(updated));
+    }
+  };
 
   // Journal Search & Filters
   const [journalQuery, setJournalQuery] = useState("");
@@ -650,6 +1018,32 @@ export default function DashboardPage() {
   const sosMapContainerRef = useRef<HTMLDivElement>(null);
   const sosMapInstanceRef = useRef<L.Map | null>(null);
 
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const startMarkerRef = useRef<L.Marker | null>(null);
+  const endMarkerRef = useRef<L.Marker | null>(null);
+  const polylineRef = useRef<L.Polyline | null>(null);
+  const lastGeocodedStart = useRef<{ name: string; coords: [number, number] } | null>(null);
+  const lastGeocodedEnd = useRef<{ name: string; coords: [number, number] } | null>(null);
+
+  // Leaflet module loaded in client state
+  const [leafletL, setLeafletL] = useState<typeof L | null>(null);
+
+  // Load Leaflet once on mount in client
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      import("leaflet").then((module) => {
+        setLeafletL(module);
+        if (!document.getElementById("leaflet-style-link")) {
+          const link = document.createElement("link");
+          link.id = "leaflet-style-link";
+          link.rel = "stylesheet";
+          link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+          document.head.appendChild(link);
+        }
+      });
+    }
+  }, []);
+
   // Initial Load from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -658,9 +1052,27 @@ export default function DashboardPage() {
       const storedBikeId = localStorage.getItem("activeBike");
       const storedTheme = localStorage.getItem("headlightTheme");
       const storedWeatherKey = localStorage.getItem("openWeatherApiKey") || "";
+      const storedLastLocation = localStorage.getItem("lastWeatherLocation");
       const storedMotorcycles = localStorage.getItem("ridesync_motorcycles");
-      const storedSavedRoutes = localStorage.getItem("ridesync_saved_routes");
-      const storedRecentRoutes = localStorage.getItem("ridesync_recent_routes");
+      const storedJournal = localStorage.getItem("ridesync_journal");
+      let parsedJournal: JournalEntry[] = [];
+      if (storedJournal) {
+        try {
+          parsedJournal = JSON.parse(storedJournal);
+        } catch {
+          console.error("Error parsing stored journal");
+        }
+      }
+
+      const storedPacking = localStorage.getItem("ridesync_packing");
+      let parsedPacking: PackingItem[] = [];
+      if (storedPacking) {
+        try {
+          parsedPacking = JSON.parse(storedPacking);
+        } catch {
+          console.error("Error parsing stored packing");
+        }
+      }
 
       let fleet = MOTORCYCLES;
       if (storedMotorcycles) {
@@ -668,24 +1080,6 @@ export default function DashboardPage() {
           fleet = JSON.parse(storedMotorcycles);
         } catch {
           console.error("Error parsing stored fleet, using defaults");
-        }
-      }
-
-      let parsedSaved: SavedRoute[] = [];
-      if (storedSavedRoutes) {
-        try {
-          parsedSaved = JSON.parse(storedSavedRoutes);
-        } catch {
-          console.error("Error parsing stored saved routes");
-        }
-      }
-
-      let parsedRecent: SavedRoute[] = [];
-      if (storedRecentRoutes) {
-        try {
-          parsedRecent = JSON.parse(storedRecentRoutes);
-        } catch {
-          console.error("Error parsing stored recent routes");
         }
       }
 
@@ -705,8 +1099,15 @@ export default function DashboardPage() {
         setMotorcyclesList(fleet);
         setActiveBike(matchedBike);
         setOpenWeatherApiKey(storedWeatherKey);
-        setSavedRoutes(parsedSaved);
-        setRecentRoutes(parsedRecent);
+        if (storedLastLocation) {
+          setWeatherCity(storedLastLocation);
+        }
+        if (parsedJournal && parsedJournal.length > 0) {
+          setJournalEntries(parsedJournal);
+        }
+        if (parsedPacking && parsedPacking.length > 0) {
+          setPackingItems(parsedPacking);
+        }
 
         if (storedTheme !== null) {
           setHeadlightOn(storedTheme === "night");
@@ -724,7 +1125,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Update packing checklist when motorcycle updates
+  // Update packing checklist when motorcycle updates, preserving existing packing states
   useEffect(() => {
     const baseItems: PackingItem[] = [
       { id: "p1", name: "Premium Adventure Helmet", category: "gear", packed: false },
@@ -771,18 +1172,51 @@ export default function DashboardPage() {
     }
 
     const timeout = setTimeout(() => {
-      setPackingItems([...baseItems, ...bikeItems]);
+      setPackingItems((prevItems) => {
+        if (prevItems.length === 0) {
+          return [...baseItems, ...bikeItems];
+        }
+        const cleaned = prevItems.filter((item) => !item.id.startsWith("pb"));
+        const baseWithPacked = baseItems.map((bItem) => {
+          const matched = prevItems.find((prev) => prev.id === bItem.id);
+          return matched ? { ...bItem, packed: matched.packed } : bItem;
+        });
+        return [...baseWithPacked, ...cleaned.filter((item) => !baseItems.some(b => b.id === item.id)), ...bikeItems];
+      });
     }, 0);
     return () => clearTimeout(timeout);
   }, [activeBike]);
 
+  // Synchronize Weather location with Route Planner destination (routeEnd)
+  useEffect(() => {
+    if (routeEnd) {
+      const cleanCity = routeEnd.replace(/\s*(base\s*camp|camp|circuit|expedition|valley)\s*/i, "").trim();
+      const timer = setTimeout(() => {
+        setWeatherCity(cleanCity || routeEnd);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [routeEnd]);
+
   // OpenWeather API Fetch
   useEffect(() => {
     const fetchRealWeather = async () => {
+      if (!weatherCity) return;
+
+      // Save weatherCity to localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("lastWeatherLocation", weatherCity);
+      }
+
       if (!openWeatherApiKey) {
         setWeatherForecast(null);
+        setWeatherError(null);
         return;
       }
+
+      setIsWeatherLoading(true);
+      setWeatherError(null);
+
       try {
         const query = encodeURIComponent(weatherCity);
         const res = await fetch(
@@ -792,11 +1226,16 @@ export default function DashboardPage() {
           const data = await res.json();
           setWeatherForecast(data);
         } else {
+          const errData = await res.json().catch(() => ({}));
+          setWeatherError(errData.message || "Failed to load weather data for the specified location.");
           setWeatherForecast(null);
         }
       } catch (err) {
         console.error("Failed to fetch weather from OpenWeather:", err);
+        setWeatherError("Network error. Please check your internet connection.");
         setWeatherForecast(null);
+      } finally {
+        setIsWeatherLoading(false);
       }
     };
     fetchRealWeather();
@@ -835,93 +1274,299 @@ export default function DashboardPage() {
     };
   }, [sosTriggered, sosCountdown]);
 
+  const handleStartChange = (val: string) => {
+    setRouteStart(val);
+    if (startTimer) clearTimeout(startTimer);
+    if (val.trim().length < 3) {
+      setStartSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5`);
+        if (res.ok) {
+          const data = await res.json();
+          setStartSuggestions(data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
+    setStartTimer(t);
+  };
+
+  const handleEndChange = (val: string) => {
+    setRouteEnd(val);
+    if (endTimer) clearTimeout(endTimer);
+    if (val.trim().length < 3) {
+      setEndSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5`);
+        if (res.ok) {
+          const data = await res.json();
+          setEndSuggestions(data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
+    setEndTimer(t);
+  };
+
+  // Route Calculation Loop
+  useEffect(() => {
+    if (activeTab !== "My Routes") return;
+
+    const delayDebounceFn = setTimeout(async () => {
+      if (!routeStart.trim() || !routeEnd.trim()) {
+        setActiveRouteData(null);
+        return;
+      }
+
+      setIsRouteLoading(true);
+      setFetchRouteError(null);
+
+      try {
+        const tryGeocode = async (q: string): Promise<[number, number]> => {
+          const fetchGeocode = async (queryStr: string) => {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}&limit=1`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data[0]) {
+                return [parseFloat(data[0].lat), parseFloat(data[0].lon)] as [number, number];
+              }
+            }
+            return null;
+          };
+
+          let coords = await fetchGeocode(q);
+          if (!coords) {
+            // Fallback: strip "Base Camp" or similar
+            const simplified = q.replace(/base camp/gi, "").trim();
+            if (simplified && simplified !== q) {
+              coords = await fetchGeocode(simplified);
+            }
+          }
+          if (!coords) {
+            throw new Error(`Could not find location: ${q}`);
+          }
+          return coords;
+        };
+
+        // Get starting coordinates
+        let startLatLon: [number, number];
+        if (lastGeocodedStart.current && lastGeocodedStart.current.name === routeStart) {
+          startLatLon = lastGeocodedStart.current.coords;
+        } else {
+          startLatLon = await tryGeocode(routeStart);
+          lastGeocodedStart.current = { name: routeStart, coords: startLatLon };
+          setStartCoords(startLatLon);
+        }
+
+        // Get destination coordinates
+        let endLatLon: [number, number];
+        if (lastGeocodedEnd.current && lastGeocodedEnd.current.name === routeEnd) {
+          endLatLon = lastGeocodedEnd.current.coords;
+        } else {
+          endLatLon = await tryGeocode(routeEnd);
+          lastGeocodedEnd.current = { name: routeEnd, coords: endLatLon };
+          setEndCoords(endLatLon);
+        }
+
+        if (startLatLon[0] === endLatLon[0] && startLatLon[1] === endLatLon[1]) {
+          throw new Error("Start and destination coordinates cannot be the same.");
+        }
+
+        const bikeStats = getBikeStats(activeBike);
+        const res = await fetchRoute(startLatLon, endLatLon, selectedRouteOption);
+        
+        const distNum = res.distanceKm;
+        const durationSec = res.durationSec;
+        const avgSpeedVal = Math.round(distNum / (durationSec / 3600)) || 50;
+        const fuelReq = distNum / bikeStats.mileage;
+        const fCost = Math.round(fuelReq * fuelPrice);
+        
+        let rType = "Standard Highway Route";
+        if (selectedRouteOption === "Scenic") {
+          rType = `Mountain Passes & Trails for ${activeBike.brand}`;
+        } else if (selectedRouteOption === "Fastest") {
+          rType = `Expressway Bypass for ${activeBike.brand}`;
+        } else if (selectedRouteOption === "Highway") {
+          rType = `Double-lane National Highway for ${activeBike.brand}`;
+        }
+        
+        const elev = Math.round(Math.abs(startLatLon[0] - endLatLon[0]) * 4500 + Math.abs(startLatLon[1] - endLatLon[1]) * 2500 + (selectedRouteOption === "Scenic" ? 1200 : 300));
+        
+        let stopsText = "No stops required";
+        if (distNum > bikeStats.maxRange) {
+          const stopsNum = Math.ceil(distNum / bikeStats.maxRange) - 1;
+          const stopInterval = Math.round(bikeStats.maxRange * 0.85);
+          stopsText = `${stopsNum} stop${stopsNum > 1 ? "s" : ""} required (Refill after every ${stopInterval} km)`;
+        }
+
+        setActiveRouteData({
+          distance: `${distNum.toFixed(1)} km`,
+          duration: durationSec > 3600 
+            ? `${Math.floor(durationSec / 3600)}h ${Math.floor((durationSec % 3600) / 60)}m` 
+            : `${Math.floor(durationSec / 60)}m`,
+          roadType: rType,
+          elevation: `${elev.toLocaleString()} m`,
+          coordinates: res.coordinates,
+          fuelRequired: parseFloat(fuelReq.toFixed(1)),
+          fuelCost: fCost,
+          avgSpeed: `${avgSpeedVal} km/h`,
+          fuelStopsText: stopsText
+        });
+      } catch (err) {
+        console.error("Routing error:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        setFetchRouteError(msg || "Failed to generate route. Please check coordinates.");
+      } finally {
+        setIsRouteLoading(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [activeTab, routeStart, routeEnd, selectedRouteOption, activeBike, fuelPrice]);
+
   // Leaflet Map Initialization for Route Planner
   useEffect(() => {
-    if (activeTab !== "My Routes" || typeof window === "undefined") return;
+    if (activeTab !== "My Routes" || typeof window === "undefined" || !leafletL || !activeRouteData) return;
     const container = mapContainerRef.current;
     if (!container) return;
 
-    let map: L.Map;
+    const L = leafletL;
+    let map = mapInstanceRef.current;
 
-    import("leaflet").then((L) => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-      }
+    const tilesUrl = headlightOn
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
-      // Add stylesheet link dynamically if not present
-      if (!document.getElementById("leaflet-style-link")) {
-        const link = document.createElement("link");
-        link.id = "leaflet-style-link";
-        link.rel = "stylesheet";
-        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        document.head.appendChild(link);
-      }
+    const coords = activeRouteData.coordinates;
 
-      const details = getRouteDetails(routeStart, routeEnd, selectedRouteOption, activeBike);
-      const coords = details.coordinates;
-      const startPoint = coords[0] || [32.2396, 77.1887];
+    const isValidLatLng = (pt: unknown): pt is [number, number] => {
+      return Array.isArray(pt) && pt.length === 2 && typeof pt[0] === "number" && typeof pt[1] === "number" && !isNaN(pt[0]) && !isNaN(pt[1]);
+    };
 
-      // Initialize map on element
+    if (!coords || !Array.isArray(coords) || coords.length < 2) return;
+    const startPoint = coords[0];
+    const endPoint = coords[coords.length - 1];
+
+    if (!isValidLatLng(startPoint) || !isValidLatLng(endPoint)) return;
+
+    if (!map) {
       map = L.map(container).setView(startPoint, 9);
       mapInstanceRef.current = map;
 
-      const tilesUrl = headlightOn
-        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-
-      L.tileLayer(tilesUrl, {
+      const tiles = L.tileLayer(tilesUrl, {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         maxZoom: 18,
       }).addTo(map);
+      tileLayerRef.current = tiles;
 
-      // Add waypoints
-      const markerGroup = L.featureGroup();
-      const latlngs: L.LatLngTuple[] = [];
-
-      coords.forEach((c, idx) => {
-        latlngs.push([c[0], c[1]]);
-        const isStart = idx === 0;
-        const isEnd = idx === coords.length - 1;
-
-        const customDiv = L.divIcon({
-          className: "custom-div-icon",
-          html: `<div style="background-color: ${
-            isStart ? "#10B981" : isEnd ? "#EF4444" : "#FF6B00"
-          }; border: 2.5px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5); width: 24px; height: 24px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900;">${
-            isStart ? "S" : isEnd ? "E" : idx
-          }</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
-
-        const marker = L.marker([c[0], c[1]], { icon: customDiv })
-          .bindPopup(`<strong>${isStart ? "Start Position" : isEnd ? "Destination" : `Waypoint ${idx}`}</strong>`)
-          .addTo(map);
-
-        markerGroup.addLayer(marker);
+      const startDiv = L.divIcon({
+        className: "custom-div-icon",
+        html: `<div style="background-color: #10B981; border: 2.5px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5); width: 24px; height: 24px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900;">S</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       });
+      const startMarker = L.marker(startPoint, { icon: startDiv })
+        .bindPopup(`<strong>Start: ${routeStart}</strong>`)
+        .addTo(map);
+      startMarkerRef.current = startMarker;
 
-      if (latlngs.length > 1) {
-        L.polyline(latlngs, {
-          color: "#FF6B00",
-          weight: 4.5,
-          opacity: 0.95,
-          dashArray: "6, 5",
-        }).addTo(map);
+      const endDiv = L.divIcon({
+        className: "custom-div-icon",
+        html: `<div style="background-color: #EF4444; border: 2.5px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5); width: 24px; height: 24px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900;">E</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      const endMarker = L.marker(endPoint, { icon: endDiv })
+        .bindPopup(`<strong>Destination: ${routeEnd}</strong>`)
+        .addTo(map);
+      endMarkerRef.current = endMarker;
+
+      polylineRef.current = L.polyline(coords, {
+        color: "#FF6B00",
+        weight: 4.5,
+        opacity: 0.95,
+        dashArray: "6, 5",
+      }).addTo(map);
+
+      const markerGroup = L.featureGroup([startMarker, endMarker]);
+      map.fitBounds(markerGroup.getBounds(), { padding: [50, 50] });
+    } else {
+      // Dynamically update tile layers and markers without destroying/recreating the map
+      if (tileLayerRef.current) {
+        tileLayerRef.current.setUrl(tilesUrl);
       }
 
-      if (coords.length > 0) {
+      if (startMarkerRef.current) {
+        startMarkerRef.current.setLatLng(startPoint);
+        startMarkerRef.current.setPopupContent(`<strong>Start: ${routeStart}</strong>`);
+      }
+
+      if (endMarkerRef.current) {
+        endMarkerRef.current.setLatLng(endPoint);
+        endMarkerRef.current.setPopupContent(`<strong>Destination: ${routeEnd}</strong>`);
+      }
+
+      if (polylineRef.current) {
+        map.removeLayer(polylineRef.current);
+        polylineRef.current = null;
+      }
+
+      polylineRef.current = L.polyline(coords, {
+        color: "#FF6B00",
+        weight: 4.5,
+        opacity: 0.95,
+        dashArray: "6, 5",
+      }).addTo(map);
+
+      const markers = [];
+      if (startMarkerRef.current) markers.push(startMarkerRef.current);
+      if (endMarkerRef.current) markers.push(endMarkerRef.current);
+      if (markers.length > 0) {
+        const markerGroup = L.featureGroup(markers);
         map.fitBounds(markerGroup.getBounds(), { padding: [50, 50] });
       }
-    });
+    }
 
+    const resizeObserver = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    });
+    resizeObserver.observe(container);
+
+    const invalidateTimer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(invalidateTimer);
+      resizeObserver.disconnect();
+    };
+  }, [activeTab, leafletL, activeRouteData, headlightOn, routeStart, routeEnd]);
+
+  // Handle map cleanup when switching tabs or unmounting
+  useEffect(() => {
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        tileLayerRef.current = null;
+        startMarkerRef.current = null;
+        endMarkerRef.current = null;
+        polylineRef.current = null;
       }
     };
-  }, [activeTab, routeStart, routeEnd, selectedRouteOption, headlightOn, activeBike]);
+  }, [activeTab]);
 
   // Leaflet Map Initialization for SOS panel
   useEffect(() => {
@@ -1098,52 +1743,42 @@ export default function DashboardPage() {
 
   // Smart Route Planner Actions
   const handleSaveRoute = () => {
-    const details = getRouteDetails(routeStart, routeEnd, selectedRouteOption, activeBike);
-    const ccVal = parseInt(activeBike.engineCc) || 350;
-    const kmPerLiter = ccVal > 1000 ? 16 : ccVal > 400 ? 21 : ccVal > 300 ? 25 : 28;
-    const distNum = parseInt(details.distance.replace(" km", "")) || 400;
-    const liters = distNum / kmPerLiter;
-    const estimatedFuelCost = Math.round(liters * 105);
-
-    const newRoute = {
+    if (!activeRouteData) return;
+    const routeName = `${routeStart.split(",")[0]} to ${routeEnd.split(",")[0]} Route`;
+    const newEntry: JournalEntry = {
       id: `route-${Date.now()}`,
+      title: routeName,
+      date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       start: routeStart,
       end: routeEnd,
+      coordinates: activeRouteData.coordinates,
       option: selectedRouteOption,
-      distance: details.distance,
-      duration: details.duration,
-      roadType: details.roadType,
-      elevation: details.elevation,
-      fuelCost: estimatedFuelCost,
-      date: new Date().toLocaleDateString(),
+      distance: activeRouteData.distance.replace(" km", ""),
+      duration: activeRouteData.duration,
+      roadType: activeRouteData.roadType,
+      elevation: activeRouteData.elevation.replace(" m", "").replace(/,/g, ""),
+      fuelCost: activeRouteData.fuelCost,
+      fuelRequired: activeRouteData.fuelRequired,
+      motorcycle: activeBike.name,
+      isRoute: true,
+      notes: `Planned via OSRM (${selectedRouteOption} engine). Duration: ${activeRouteData.duration}. Fuel cost: ₹${activeRouteData.fuelCost}.`,
+      rating: 5,
+      favorite: false,
+      image: "/hero_rider_standing.png"
     };
 
-    const updatedSaved = [newRoute, ...savedRoutes];
-    setSavedRoutes(updatedSaved);
+    const updatedJournal = [newEntry, ...journalEntries];
+    setJournalEntries(updatedJournal);
     if (typeof window !== "undefined") {
-      localStorage.setItem("ridesync_saved_routes", JSON.stringify(updatedSaved));
-    }
-
-    // Add to recent routes (max 5)
-    let updatedRecent = [newRoute, ...recentRoutes];
-    updatedRecent = updatedRecent.filter(
-      (item, index, self) =>
-        index === self.findIndex((t) => t.start === item.start && t.end === item.end && t.option === item.option)
-    );
-    if (updatedRecent.length > 5) {
-      updatedRecent = updatedRecent.slice(0, 5);
-    }
-    setRecentRoutes(updatedRecent);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ridesync_recent_routes", JSON.stringify(updatedRecent));
+      localStorage.setItem("ridesync_journal", JSON.stringify(updatedJournal));
     }
   };
 
   const handleDeleteSavedRoute = (id: string) => {
-    const updated = savedRoutes.filter((r) => r.id !== id);
-    setSavedRoutes(updated);
+    const updated = journalEntries.filter((r) => r.id !== id);
+    setJournalEntries(updated);
     if (typeof window !== "undefined") {
-      localStorage.setItem("ridesync_saved_routes", JSON.stringify(updated));
+      localStorage.setItem("ridesync_journal", JSON.stringify(updated));
     }
   };
 
@@ -1151,6 +1786,36 @@ export default function DashboardPage() {
     setRouteStart(route.start);
     setRouteEnd(route.end);
     setSelectedRouteOption(route.option);
+    if (route.coordinates && route.coordinates.length > 0) {
+      const sCoords = route.coordinates[0];
+      const eCoords = route.coordinates[route.coordinates.length - 1];
+      setStartCoords(sCoords);
+      setEndCoords(eCoords);
+      lastGeocodedStart.current = { name: route.start, coords: sCoords };
+      lastGeocodedEnd.current = { name: route.end, coords: eCoords };
+    }
+    
+    const bikeStats = getBikeStats(activeBike);
+    const distNum = parseFloat(route.distance.replace(" km", "")) || 0;
+    
+    let stopsText = "No stops required";
+    if (distNum > bikeStats.maxRange) {
+      const stopsNum = Math.ceil(distNum / bikeStats.maxRange) - 1;
+      const stopInterval = Math.round(bikeStats.maxRange * 0.85);
+      stopsText = `${stopsNum} stop${stopsNum > 1 ? "s" : ""} required (Refill after every ${stopInterval} km)`;
+    }
+
+    setActiveRouteData({
+      distance: route.distance,
+      duration: route.duration,
+      roadType: route.roadType,
+      elevation: route.elevation,
+      coordinates: route.coordinates,
+      fuelRequired: route.fuelRequired || parseFloat((distNum / bikeStats.mileage).toFixed(1)),
+      fuelCost: route.fuelCost,
+      avgSpeed: "60 km/h",
+      fuelStopsText: stopsText
+    });
   };
 
   // Chat Submission
@@ -1241,14 +1906,22 @@ export default function DashboardPage() {
       notes: newJournalNotes || "Smooth cruising and scenic loops. Kept traction standard.",
       image: newJournalImage,
       motorcycle: activeBike.name,
+      rating: newJournalRating,
+      favorite: newJournalFavorite,
     };
-    setJournalEntries([newLog, ...journalEntries]);
+    const updatedJournal = [newLog, ...journalEntries];
+    setJournalEntries(updatedJournal);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ridesync_journal", JSON.stringify(updatedJournal));
+    }
     setNewJournalTitle("");
     setNewJournalDate("");
     setNewJournalDist("");
     setNewJournalLean("");
     setNewJournalElev("");
     setNewJournalNotes("");
+    setNewJournalRating(5);
+    setNewJournalFavorite(false);
     setShowAddJournal(false);
   };
 
@@ -1258,6 +1931,29 @@ export default function DashboardPage() {
       item.id === id ? { ...item, packed: !item.packed } : item
     );
     setPackingItems(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ridesync_packing", JSON.stringify(updated));
+    }
+  };
+
+  const handleApplyTemplate = (templateName: keyof typeof PACKING_TEMPLATES) => {
+    const templateItems = PACKING_TEMPLATES[templateName].map((item) => ({
+      ...item,
+      id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    }));
+    const updated = [...packingItems, ...templateItems];
+    setPackingItems(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ridesync_packing", JSON.stringify(updated));
+    }
+  };
+
+  const handleResetPacking = () => {
+    const reset = packingItems.map((item) => ({ ...item, packed: false }));
+    setPackingItems(reset);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ridesync_packing", JSON.stringify(reset));
+    }
   };
 
   // SOS Activation
@@ -1275,8 +1971,11 @@ export default function DashboardPage() {
 
   // Export GPX
   const exportGPX = () => {
-    const details = getRouteDetails(routeStart, routeEnd, selectedRouteOption, activeBike);
-    const coords = details.coordinates;
+    if (!activeRouteData) {
+      alert("Please configure and select a route in the Route Planner tab first before exporting GPX.");
+      return;
+    }
+    const coords = activeRouteData.coordinates;
     const gpxString = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="RideSync AI">
   <metadata>
@@ -1292,6 +1991,37 @@ export default function DashboardPage() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `${routeStart.replace(/\s+/g, "_")}_to_${routeEnd.replace(/\s+/g, "_")}_${selectedRouteOption.toLowerCase()}.gpx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export JSON
+  const exportJSON = () => {
+    if (!activeRouteData) {
+      alert("Please configure and select a route in the Route Planner tab first before exporting JSON.");
+      return;
+    }
+    const routeJSON = {
+      name: `${routeStart} to ${routeEnd} Route`,
+      start: routeStart,
+      end: routeEnd,
+      option: selectedRouteOption,
+      distance: activeRouteData.distance,
+      duration: activeRouteData.duration,
+      roadType: activeRouteData.roadType,
+      elevation: activeRouteData.elevation,
+      fuelCost: activeRouteData.fuelCost,
+      fuelRequired: activeRouteData.fuelRequired,
+      coordinates: activeRouteData.coordinates,
+      motorcycle: activeBike.name,
+      date: new Date().toLocaleDateString()
+    };
+    const blob = new Blob([JSON.stringify(routeJSON, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${routeStart.replace(/\s+/g, "_")}_to_${routeEnd.replace(/\s+/g, "_")}_${selectedRouteOption.toLowerCase()}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2224,7 +2954,6 @@ export default function DashboardPage() {
                   )}
 
                   {/* ── 3. ROUTE PLANNER TAB (Leaflet Integration) ── */}
-                  {/* ── 3. ROUTE PLANNER TAB (Leaflet Integration) ── */}
                   {activeTab === "My Routes" && (
                     <div className="space-y-8">
                       {/* Inputs, route options and statistics */}
@@ -2236,25 +2965,101 @@ export default function DashboardPage() {
                           </div>
 
                           <div className="space-y-4 text-xs">
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col gap-1.5 relative">
                               <label className="text-[10px] font-black uppercase text-gray-400">Current Location (Start)</label>
                               <input
                                 type="text"
                                 value={routeStart}
-                                onChange={(e) => setRouteStart(e.target.value)}
-                                placeholder="e.g. Manali Base Camp"
+                                onChange={(e) => handleStartChange(e.target.value)}
+                                placeholder="Search start location..."
                                 className={`theme-transition border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[#FF6B00] ${
                                   headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
                                 }`}
                               />
+                              {startSuggestions.length > 0 && (
+                                <div className={`absolute left-0 right-0 top-[100%] mt-1 z-50 rounded-xl border max-h-48 overflow-y-auto ${
+                                  headlightOn ? "bg-[#0b1420] border-white/10 text-white shadow-2xl" : "bg-white border-black/10 text-[#0b1420] shadow-lg"
+                                }`}>
+                                  {startSuggestions.map((item, idx) => (
+                                    <div
+                                      key={idx}
+                                      onClick={() => {
+                                        setRouteStart(item.display_name);
+                                        const coords: [number, number] = [parseFloat(item.lat), parseFloat(item.lon)];
+                                        setStartCoords(coords);
+                                        lastGeocodedStart.current = { name: item.display_name, coords };
+                                        setStartSuggestions([]);
+                                      }}
+                                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-[#FF6B00]/10 hover:text-[#FF6B00] border-b border-white/5 last:border-b-0 truncate`}
+                                      title={item.display_name}
+                                    >
+                                      {item.display_name}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col gap-1.5 relative">
                               <label className="text-[10px] font-black uppercase text-gray-400">Destination Search (End)</label>
                               <input
                                 type="text"
                                 value={routeEnd}
-                                onChange={(e) => setRouteEnd(e.target.value)}
-                                placeholder="e.g. Kaza Base Camp"
+                                onChange={(e) => handleEndChange(e.target.value)}
+                                placeholder="Search destination..."
+                                className={`theme-transition border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                  headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                }`}
+                              />
+                              {endSuggestions.length > 0 && (
+                                <div className={`absolute left-0 right-0 top-[100%] mt-1 z-50 rounded-xl border max-h-48 overflow-y-auto ${
+                                  headlightOn ? "bg-[#0b1420] border-white/10 text-white shadow-2xl" : "bg-white border-black/10 text-[#0b1420] shadow-lg"
+                                }`}>
+                                  {endSuggestions.map((item, idx) => (
+                                    <div
+                                      key={idx}
+                                      onClick={() => {
+                                        setRouteEnd(item.display_name);
+                                        const coords: [number, number] = [parseFloat(item.lat), parseFloat(item.lon)];
+                                        setEndCoords(coords);
+                                        lastGeocodedEnd.current = { name: item.display_name, coords };
+                                        setEndSuggestions([]);
+                                      }}
+                                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-[#FF6B00]/10 hover:text-[#FF6B00] border-b border-white/5 last:border-b-0 truncate`}
+                                      title={item.display_name}
+                                    >
+                                      {item.display_name}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Fuel pricing adjustment */}
+                          <div className="flex gap-2">
+                            <div className="flex flex-col gap-1.5 flex-1">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Fuel Type</label>
+                              <select
+                                value={fuelType}
+                                onChange={(e) => {
+                                  const type = e.target.value as "Petrol" | "Diesel";
+                                  setFuelType(type);
+                                  setFuelPrice(type === "Petrol" ? 105 : 95);
+                                }}
+                                className={`theme-transition border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                  headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                }`}
+                              >
+                                <option value="Petrol">Petrol</option>
+                                <option value="Diesel">Diesel</option>
+                              </select>
+                            </div>
+                            <div className="flex flex-col gap-1.5 w-24">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Price (₹/L)</label>
+                              <input
+                                type="number"
+                                value={fuelPrice}
+                                onChange={(e) => setFuelPrice(parseFloat(e.target.value) || 0)}
                                 className={`theme-transition border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-[#FF6B00] ${
                                   headlightOn ? "bg-black/45 border-white/10 text-white" : "bg-white border-black/10 text-[#0B1520]"
                                 }`}
@@ -2262,7 +3067,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          {/* Route Options (Only 3 Options) */}
+                          {/* Route Options (Scenic, Fastest, Highway) */}
                           <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-gray-400">Select Route Engine</label>
                             <div className="grid grid-cols-3 gap-2">
@@ -2284,62 +3089,98 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          {/* Route Details and Calculations */}
-                          {(() => {
-                            const details = getRouteDetails(routeStart, routeEnd, selectedRouteOption, activeBike);
-                            const ccVal = parseInt(activeBike.engineCc) || 350;
-                            const kmPerLiter = ccVal > 1000 ? 16 : ccVal > 400 ? 21 : ccVal > 300 ? 25 : 28;
-                            const distNum = parseInt(details.distance.replace(" km", "")) || 400;
-                            const liters = distNum / kmPerLiter;
-                            const fuelCost = Math.round(liters * 105);
+                          {/* Error block */}
+                          {routeError && (
+                            <div className="p-3 text-xs bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-500" />
+                              <span>{routeError}</span>
+                            </div>
+                          )}
 
-                            return (
-                              <div className="space-y-4 pt-4 border-t border-gray-400/10">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase">Distance</p>
-                                    <p className="text-base font-black mt-0.5">{details.distance}</p>
-                                  </div>
-                                  <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase">ETA</p>
-                                    <p className="text-base font-black mt-0.5">{details.duration}</p>
-                                  </div>
+                          {/* Route Details and Calculations */}
+                          {activeRouteData ? (
+                            <div className="space-y-4 pt-4 border-t border-gray-400/10">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase">Distance</p>
+                                  <p className="text-base font-black mt-0.5">{activeRouteData.distance}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase">Est. Fuel Cost</p>
-                                    <p className="text-base font-black mt-0.5 text-[#FF6B00]">₹{fuelCost.toLocaleString()}</p>
-                                  </div>
-                                  <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
-                                    <p className="text-[9px] font-bold text-gray-400 uppercase">Road Surface</p>
-                                    <p className="text-[10px] font-black mt-0.5 leading-tight truncate" title={details.roadType}>{details.roadType}</p>
-                                  </div>
+                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase">ETA</p>
+                                  <p className="text-base font-black mt-0.5">{activeRouteData.duration}</p>
                                 </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={handleSaveRoute}
-                                    className="flex-1 py-2.5 bg-[#FF6B00] hover:bg-orange-600 text-white font-black text-xs rounded-xl tracking-widest uppercase shadow shadow-[#FF6B00]/15 transition-colors"
-                                  >
-                                    Save Route
-                                  </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase">Est. Fuel Cost</p>
+                                  <p className="text-base font-black mt-0.5 text-[#FF6B00]">₹{activeRouteData.fuelCost.toLocaleString()}</p>
+                                </div>
+                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase">Fuel Required</p>
+                                  <p className="text-base font-black mt-0.5 text-[#FF6B00]">{activeRouteData.fuelRequired} L</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase">Average Speed</p>
+                                  <p className="text-base font-black mt-0.5">{activeRouteData.avgSpeed}</p>
+                                </div>
+                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase">Elevation Gain</p>
+                                  <p className="text-base font-black mt-0.5">{activeRouteData.elevation}</p>
+                                </div>
+                              </div>
+
+                              <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase">Fuel Stop Advisory</p>
+                                <p className="text-xs font-black mt-0.5 text-orange-400">{activeRouteData.fuelStopsText}</p>
+                              </div>
+
+                              <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase">Road Surface</p>
+                                <p className="text-[10px] font-black mt-0.5 leading-tight truncate" title={activeRouteData.roadType}>{activeRouteData.roadType}</p>
+                              </div>
+
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  onClick={handleSaveRoute}
+                                  className="w-full py-2.5 bg-[#FF6B00] hover:bg-orange-600 text-white font-black text-xs rounded-xl tracking-widest uppercase shadow shadow-[#FF6B00]/15 transition-colors"
+                                >
+                                  Save Route
+                                </button>
+                                <div className="grid grid-cols-2 gap-2">
                                   <button
                                     onClick={exportGPX}
-                                    className={`px-3 py-2.5 rounded-xl border transition-colors flex items-center justify-center ${
+                                    className={`px-3 py-2.5 rounded-xl border transition-colors flex items-center justify-center gap-1.5 ${
                                       headlightOn ? "border-white/10 hover:bg-white/5 text-white" : "border-black/10 hover:bg-black/5 text-[#0B1520]"
                                     }`}
                                     title="Export GPX"
                                   >
-                                    <FileDown className="w-4 h-4" />
+                                    <FileDown className="w-3.5 h-3.5" /> <span className="text-[9px] font-black">GPX</span>
+                                  </button>
+                                  <button
+                                    onClick={exportJSON}
+                                    className={`px-3 py-2.5 rounded-xl border transition-colors flex items-center justify-center gap-1.5 ${
+                                      headlightOn ? "border-white/10 hover:bg-white/5 text-white" : "border-black/10 hover:bg-black/5 text-[#0B1520]"
+                                    }`}
+                                    title="Export JSON"
+                                  >
+                                    <FileDown className="w-3.5 h-3.5" /> <span className="text-[9px] font-black">JSON</span>
                                   </button>
                                 </div>
                               </div>
-                            );
-                          })()}
+                            </div>
+                          ) : (
+                            <div className="p-4 rounded-2xl bg-black/10 border border-white/5 text-center text-gray-500 text-xs">
+                              <p className="font-bold">Provide location coordinates to calculate route logistics & analytics.</p>
+                            </div>
+                          )}
                         </div>
 
                         {/* Interactive Leaflet Map */}
-                        <div className="lg:col-span-2 space-y-6">
-                          <div className={`${cardClass} flex flex-col justify-between h-full`}>
+                        <div className="lg:col-span-2 space-y-6 relative">
+                          <div className={`${cardClass} flex flex-col h-full relative`}>
                             <div className="flex justify-between items-center mb-6">
                               <div>
                                 <h4 className="text-lg font-black">Interactive Sat-Nav Map</h4>
@@ -2347,8 +3188,14 @@ export default function DashboardPage() {
                               </div>
                             </div>
 
-                            <div className="h-[380px] rounded-3xl overflow-hidden border border-white/5 relative z-10 bg-[#070e17]">
-                              <div ref={mapContainerRef} className="w-full h-full" />
+                            <div className="flex-1 w-full h-full min-h-[380px] md:min-h-[480px] rounded-3xl overflow-hidden border border-white/5 relative z-10 bg-[#070e17]" style={{ height: "100%", width: "100%" }}>
+                              {isRouteLoading && (
+                                <div className="absolute inset-0 bg-black/60 z-30 flex flex-col items-center justify-center text-white gap-2">
+                                  <div className="w-8 h-8 border-4 border-t-[#FF6B00] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-orange-400">Loading dynamic GIS route...</span>
+                                </div>
+                              )}
+                              <div ref={mapContainerRef} className="w-full h-full" style={{ height: "100%", width: "100%" }} />
                             </div>
                           </div>
                         </div>
@@ -2372,7 +3219,7 @@ export default function DashboardPage() {
                               <p className="text-[10px] text-gray-500 mt-1 max-w-[200px]">Create, search, and save routes to build your custom expedition catalog.</p>
                             </div>
                           ) : (
-                            <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                            <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
                               {savedRoutes.map((route) => (
                                 <div
                                   key={route.id}
@@ -2380,9 +3227,10 @@ export default function DashboardPage() {
                                   className="flex items-center justify-between p-3 rounded-2xl bg-black/20 hover:bg-black/30 border border-white/5 cursor-pointer hover:scale-[1.01] transition-all duration-200 group"
                                 >
                                   <div className="text-xs flex-1 min-w-0 pr-2">
-                                    <p className="font-black text-white group-hover:text-[#FF6B00] transition-colors truncate">{route.start} ➔ {route.end}</p>
+                                    <p className="font-black text-white group-hover:text-[#FF6B00] transition-colors truncate">{route.name}</p>
+                                    <p className="text-[9px] text-[#FF6B00] font-semibold truncate">{route.start.split(",")[0]} ➔ {route.end.split(",")[0]}</p>
                                     <p className="text-[8px] text-gray-400 mt-0.5 font-bold uppercase tracking-wider truncate">
-                                      {route.option} · {route.distance} · {route.duration} · ₹{route.fuelCost} Est.
+                                      {route.option} · {route.distance} · {route.duration} · ₹{route.fuelCost} · {route.motorcycle}
                                     </p>
                                   </div>
                                   <button
@@ -2400,7 +3248,12 @@ export default function DashboardPage() {
 
                         {/* Recent Searches */}
                         <div className={cardClass}>
-                          <h4 className="text-base font-black mb-4 pb-2 border-b border-gray-400/10">Recent Routes</h4>
+                          <h4 className="text-base font-black mb-4 pb-2 border-b border-gray-400/10 flex justify-between items-center">
+                            <span>Recent Routes</span>
+                            <span className="text-[10px] font-black text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              {recentRoutes.length} Recent
+                            </span>
+                          </h4>
 
                           {recentRoutes.length === 0 ? (
                             <div className="py-8 text-center flex flex-col items-center justify-center text-gray-500">
@@ -2409,7 +3262,7 @@ export default function DashboardPage() {
                               <p className="text-[10px] text-gray-500 mt-1 max-w-[200px]">Searched routes will appear here for fast dynamic retrieval.</p>
                             </div>
                           ) : (
-                            <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                            <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
                               {recentRoutes.map((route, idx) => (
                                 <div
                                   key={route.id || idx}
@@ -2417,9 +3270,9 @@ export default function DashboardPage() {
                                   className="p-3 rounded-2xl bg-black/20 hover:bg-black/30 border border-white/5 cursor-pointer hover:scale-[1.01] transition-all duration-200 flex justify-between items-center group"
                                 >
                                   <div className="text-xs flex-1 min-w-0 pr-2">
-                                    <p className="font-black text-white group-hover:text-sky-400 transition-colors truncate">{route.start} ➔ {route.end}</p>
+                                    <p className="font-black text-white group-hover:text-sky-400 transition-colors truncate">{route.name || `${route.start.split(",")[0]} ➔ ${route.end.split(",")[0]}`}</p>
                                     <p className="text-[8px] text-gray-400 mt-0.5 font-bold uppercase tracking-wider truncate">
-                                      {route.option} · {route.distance} · {route.duration}
+                                      {route.option} · {route.distance} · {route.duration} · {route.motorcycle || "BMW R1250 GS"}
                                     </p>
                                   </div>
                                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
@@ -2434,13 +3287,19 @@ export default function DashboardPage() {
 
                   {/* ── 4. WEATHER TAB (OpenWeather Integration) ── */}
                   {activeTab === "Weather Forecast" && (
-                    <div className="space-y-8">
+                    <motion.div
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -15 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-8"
+                    >
                       
                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                           <h2 className="text-2xl font-black">Weather Radar</h2>
                           <p className="text-xs text-gray-400 font-semibold mt-1">
-                            {openWeatherApiKey ? `Live OpenWeather feed for ${weatherCity}` : "Standard Meteorological radar mockup"}
+                            {openWeatherApiKey ? `Live OpenWeather feed for ${weatherCity}` : "Simulated Microclimate Meteorological Radar"}
                           </p>
                         </div>
                         {/* City select */}
@@ -2457,140 +3316,264 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        
-                        {/* Current metrics */}
-                        <div className={`${cardClass} flex flex-col justify-between`}>
-                          <div>
-                            <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Active Station Radar</span>
-                            <div className="flex justify-between items-center my-6">
-                              <div>
-                                <h4 className="text-5xl font-black">
-                                  {weatherForecast ? `${Math.round(weatherForecast.list[0].main.temp)}°C` : weatherCondition.temp}
-                                </h4>
-                                <p className="text-xs text-gray-400 font-bold mt-1">
-                                  {weatherForecast ? `${weatherForecast.city.name}, ${weatherForecast.city.country}` : "Spiti Valley High Passes"}
-                                </p>
-                              </div>
-                              {/* Animated svg icon */}
-                              <div className="animate-bounce">
-                                <Cloud className="w-16 h-16 text-[#FF6B00] drop-shadow-[0_0_10px_rgba(255,107,0,0.25)]" />
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-3.5 border-t border-gray-400/10 pt-4">
-                            {[
-                              {
-                                label: "Atmosphere State",
-                                value: weatherForecast ? weatherForecast.list[0].weather[0].description : weatherCondition.sky,
-                              },
-                              {
-                                label: "Feels-like index",
-                                value: weatherForecast ? `${Math.round(weatherForecast.list[0].main.feels_like)}°C` : weatherCondition.feelsLike,
-                              },
-                              {
-                                label: "Wind speed & vectors",
-                                value: weatherForecast ? `${weatherForecast.list[0].wind.speed} m/s` : weatherCondition.wind,
-                              },
-                              {
-                                label: "Humidity",
-                                value: weatherForecast ? `${weatherForecast.list[0].main.humidity}%` : "55%",
-                              },
-                              {
-                                label: "Pressure index",
-                                value: weatherForecast ? `${weatherForecast.list[0].main.pressure} hPa` : "1012 hPa",
-                              },
-                            ].map((w) => (
-                              <div key={w.label} className="flex justify-between text-xs border-b border-gray-400/5 pb-2">
-                                <span className="text-gray-400 font-bold">{w.label}</span>
-                                <span className="font-black capitalize">{w.value}</span>
-                              </div>
-                            ))}
-                          </div>
+                      {/* Offline & Connection Banners */}
+                      {!openWeatherApiKey && (
+                        <div className="p-4 rounded-xl bg-orange-600/10 border border-orange-500/25 text-[#FF6B00] text-xs font-semibold flex items-center gap-3">
+                          <Cloud className="w-5 h-5 flex-shrink-0 text-[#FF6B00]" />
+                          <span><strong>Offline Mode</strong>: Utilizing simulated microclimate meteorological engine for <strong>{weatherCity}</strong>. Provide an OpenWeather API key in Settings to connect to live radar.</span>
                         </div>
+                      )}
 
-                        {/* 24h & 7-Day Forecast */}
-                        <div className={`lg:col-span-2 ${cardClass} flex flex-col justify-between`}>
-                          <div>
-                            <div className="flex justify-between items-center mb-6">
-                              <h4 className="text-lg font-black">Expedition 24-Hour Forecast</h4>
-                              <span className="text-xs font-bold text-sky-400 flex items-center gap-1">
-                                <Wind className="w-3.5 h-3.5" /> Pass advisories active
-                              </span>
+                      {openWeatherApiKey && weatherError && (
+                        <div className="p-4 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 text-xs font-semibold flex items-center gap-3">
+                          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                          <span><strong>API Connection Failed</strong>: {weatherError}. Falling back to simulated climate radar for <strong>{weatherCity}</strong>.</span>
+                        </div>
+                      )}
+
+                      {isWeatherLoading ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                          {/* Skeleton Loader 1: Overview */}
+                          <div className={`${cardClass} animate-pulse min-h-[320px] flex flex-col justify-between`}>
+                            <div>
+                              <div className="h-3 bg-white/10 rounded w-1/4 mb-4" />
+                              <div className="flex justify-between items-center my-6">
+                                <div>
+                                  <div className="h-12 bg-white/10 rounded w-24 mb-2" />
+                                  <div className="h-4 bg-white/10 rounded w-32" />
+                                </div>
+                                <div className="w-16 h-16 bg-white/10 rounded-full" />
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                              {WEATHER_HOURLY.map((hr: { time: string; temp: string; rain: string; wind: string; condition: string; icon: string }, idx: number) => {
-                                const isNight = idx >= 4;
-                                // Override temp if real forecast data is loaded
-                                const displayTemp = weatherForecast 
-                                  ? `${Math.round(weatherForecast.list[idx].main.temp)}°C`
-                                  : hr.temp;
-                                const displayIcon = weatherForecast
-                                  ? weatherForecast.list[idx].weather[0].main === "Rain" ? "🌧️" : "☀️"
-                                  : hr.icon;
-                                
-                                return (
-                                  <div
-                                    key={idx}
-                                    className={`border rounded-2xl p-4 text-center flex flex-col items-center hover:scale-[1.04] transition-all duration-200 cursor-default ${
-                                      headlightOn
-                                        ? isNight
-                                          ? "bg-indigo-950/40 border-indigo-800/20 shadow-md shadow-indigo-900/20"
-                                          : "bg-sky-900/20 border-sky-800/15 shadow-md shadow-sky-900/10"
-                                        : "bg-white border-black/8 shadow-sm"
-                                    }`}
-                                  >
-                                    <span className="text-[10px] text-gray-400 font-bold">{hr.time}</span>
-                                    <span className="text-2xl my-2 inline-block animate-weather-float" style={{ animationDelay: `${idx * 0.3}s` }}>
-                                      {displayIcon}
-                                    </span>
-                                    <span className="text-sm font-black">{displayTemp}</span>
-                                    <span className="text-[8px] text-sky-400 font-bold mt-1.5 flex items-center gap-0.5">
-                                      <Droplets className="w-2.5 h-2.5" /> {hr.rain}
-                                    </span>
+                            <div className="space-y-4 border-t border-white/5 pt-4">
+                              {[1, 2, 3].map((i) => (
+                                <div key={i} className="flex justify-between">
+                                  <div className="h-3 bg-white/10 rounded w-1/3" />
+                                  <div className="h-3 bg-white/10 rounded w-16" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Skeleton Loader 2: Details */}
+                          <div className={`${cardClass} animate-pulse min-h-[320px] flex flex-col justify-between`}>
+                            <div className="space-y-4">
+                              <div className="h-3 bg-white/10 rounded w-1/3 mb-4" />
+                              <div className="grid grid-cols-2 gap-4">
+                                {[1, 2, 3, 4].map((i) => (
+                                  <div key={i} className="p-3 bg-white/5 border border-white/5 rounded-xl space-y-2">
+                                    <div className="h-3 bg-white/10 rounded w-12" />
+                                    <div className="h-4 bg-white/10 rounded w-16" />
                                   </div>
-                                );
-                              })}
+                                ))}
+                              </div>
                             </div>
                           </div>
+
+                          {/* Skeleton Loader 3: 12-Hour Forecast */}
+                          <div className={`${cardClass} animate-pulse min-h-[320px] flex flex-col justify-between`}>
+                            <div>
+                              <div className="h-3 bg-white/10 rounded w-1/3 mb-4" />
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {[1, 2, 3, 4].map((i) => (
+                                  <div key={i} className="h-28 bg-white/5 border border-white/5 rounded-2xl" />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        (() => {
+                          const activeData = weatherForecast || generateMockForecast(weatherCity);
+                          const current = activeData.list[0];
                           
-                          <div className="mt-6 p-4 bg-orange-600/10 border border-orange-500/25 rounded-2xl">
-                            <h5 className="text-xs font-black text-[#FF6B00] uppercase tracking-wider mb-1.5">Rider Safety Advisory</h5>
-                            <p className="text-xs text-[#FF6B00]/90 font-medium leading-relaxed">
-                              Tension index at High Pass is reporting moderate crosswinds. Keep side pannier loads firmly balanced. Rain probabilities shift depending on solar peaks. Secure visor filters and lower speed bounds on gravel.
-                            </p>
-                          </div>
-                        </div>
+                          // Condition icon picker
+                          const mainCond = current.weather[0].main.toLowerCase();
+                          let weatherIconElement = <Cloud className="w-16 h-16 text-gray-400 drop-shadow-[0_0_10px_rgba(156,163,175,0.3)]" />;
+                          if (mainCond.includes("rain") || mainCond.includes("drizzle")) {
+                            weatherIconElement = <Cloud className="w-16 h-16 text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.35)]" />;
+                          } else if (mainCond.includes("snow")) {
+                            weatherIconElement = <Cloud className="w-16 h-16 text-sky-200 drop-shadow-[0_0_10px_rgba(224,242,254,0.35)]" />;
+                          } else if (mainCond.includes("clear") || mainCond.includes("sun")) {
+                            weatherIconElement = <Sun className="w-16 h-16 text-[#FF6B00] drop-shadow-[0_0_10px_rgba(255,107,0,0.35)] animate-spin" style={{ animationDuration: '25s' }} />;
+                          }
 
-                      </div>
+                          // 12-Hour Forecast calculation
+                          const hourlyList = activeData.list.slice(0, 4).map((item) => {
+                            const date = new Date(item.dt * 1000);
+                            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const isNight = date.getHours() < 6 || date.getHours() > 18;
+                            const itemCond = item.weather[0].main.toLowerCase();
+                            
+                            let emoji = "☀️";
+                            if (itemCond.includes("rain")) emoji = "🌧️";
+                            else if (itemCond.includes("cloud")) emoji = "⛅";
+                            else if (itemCond.includes("snow")) emoji = "❄️";
+                            
+                            return {
+                              time: timeStr,
+                              temp: `${Math.round(item.main.temp)}°C`,
+                              icon: emoji,
+                              rain: item.pop !== undefined ? `${Math.round(item.pop * 100)}%` : "15%",
+                              wind: `${item.wind.speed} m/s`,
+                              isNight
+                            };
+                          });
 
-                      {/* 7-Day Forecast */}
-                      <div>
-                        <h4 className="text-lg font-black mb-6">7-Day Mountain Outlook</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-4">
-                          {[
-                            { day: "Wed, Jul 15", temp: "19°C / 12°C", icon: "🌤️", cond: "Partly Sunny" },
-                            { day: "Thu, Jul 16", temp: "21°C / 13°C", icon: "☀️", cond: "Bright Sunny" },
-                            { day: "Fri, Jul 17", temp: "18°C / 11°C", icon: "🌦️", cond: "Light Showers" },
-                            { day: "Sat, Jul 18", temp: "16°C / 9°C", icon: "🌧️", cond: "Heavy Showers" },
-                            { day: "Sun, Jul 19", temp: "19°C / 12°C", icon: "⛅", cond: "Scattered Clouds" },
-                            { day: "Mon, Jul 20", temp: "20°C / 13°C", icon: "☀️", cond: "Sunny Skies" },
-                            { day: "Tue, Jul 21", temp: "18°C / 10°C", icon: "⛈️", cond: "Lightning Storm" },
-                          ].map((d, i) => (
-                            <div key={i} className={`border rounded-2xl p-5 backdrop-blur-md hover:scale-[1.03] transition-all duration-200 ${
-                              headlightOn ? "bg-[#0A131F]/50 border-[#16324F]/30 text-white" : "bg-white border-black/10 text-[#0B1520]"
-                            }`}>
-                              <p className="text-[10px] text-gray-400 font-black leading-none">{d.day}</p>
-                              <span className="text-3xl my-3 block">{d.icon}</span>
-                              <p className="text-sm font-black">{d.temp}</p>
-                              <p className="text-[9px] text-[#FF6B00] font-black uppercase mt-1.5 tracking-wider">{d.cond}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                          // 7-Day Forecast calculation
+                          const sevenDayList = get7DayForecast(weatherForecast ? weatherForecast.list : null, weatherCity);
 
-                    </div>
+                          return (
+                            <>
+                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                
+                                {/* 1. OVERVIEW CARD */}
+                                <div className={`${cardClass} flex flex-col justify-between hover:border-white/10 hover:shadow-lg hover:shadow-[#FF6B00]/5 transition-all duration-300`}>
+                                  <div>
+                                    <div className="flex justify-between items-center border-b border-gray-400/10 pb-3 mb-4">
+                                      <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Active Station Radar</span>
+                                      <span className="text-[9px] font-bold text-gray-400 px-2 py-0.5 rounded bg-white/5 capitalize">{current.weather[0].description}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center my-4">
+                                      <div>
+                                        <h4 className="text-5xl font-black tracking-tighter">
+                                          {Math.round(current.main.temp)}°C
+                                        </h4>
+                                        <p className="text-sm text-white font-bold mt-1.5 flex items-center gap-1">
+                                          {activeData.city.name}, {activeData.city.country}
+                                        </p>
+                                      </div>
+                                      <div className="animate-bounce" style={{ animationDuration: '4s' }}>
+                                        {weatherIconElement}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="space-y-3.5 border-t border-gray-400/10 pt-4 mt-4">
+                                    <div className="flex justify-between text-xs border-b border-gray-400/5 pb-2">
+                                      <span className="text-gray-400 font-bold flex items-center gap-1.5"><Thermometer className="w-3.5 h-3.5 text-[#FF6B00]" /> Feels-Like Index</span>
+                                      <span className="font-black">{Math.round(current.main.feels_like)}°C</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs border-b border-gray-400/5 pb-2">
+                                      <span className="text-gray-400 font-bold flex items-center gap-1.5"><Wind className="w-3.5 h-3.5 text-[#FF6B00]" /> Wind Speed & Vectors</span>
+                                      <span className="font-black">{current.wind.speed} m/s</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs pb-1">
+                                      <span className="text-gray-400 font-bold flex items-center gap-1.5"><Droplets className="w-3.5 h-3.5 text-[#FF6B00]" /> Humidity Level</span>
+                                      <span className="font-black">{current.main.humidity}%</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* 2. DEEP DIVE METEOROLOGICAL CARD */}
+                                <div className={`${cardClass} flex flex-col justify-between hover:border-white/10 hover:shadow-lg hover:shadow-[#FF6B00]/5 transition-all duration-300`}>
+                                  <div>
+                                    <div className="border-b border-gray-400/10 pb-3 mb-4">
+                                      <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Meteorological Deep Dive</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="p-3 bg-white/2 border border-white/5 rounded-xl flex items-center gap-3">
+                                        <Gauge className="w-8 h-8 text-[#FF6B00] flex-shrink-0 opacity-80" />
+                                        <div>
+                                          <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Pressure</p>
+                                          <p className="text-sm font-black text-white mt-0.5">{current.main.pressure} hPa</p>
+                                        </div>
+                                      </div>
+                                      <div className="p-3 bg-white/2 border border-white/5 rounded-xl flex items-center gap-3">
+                                        <Eye className="w-8 h-8 text-[#FF6B00] flex-shrink-0 opacity-80" />
+                                        <div>
+                                          <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Visibility</p>
+                                          <p className="text-sm font-black text-white mt-0.5">{(current.visibility / 1000).toFixed(1)} km</p>
+                                        </div>
+                                      </div>
+                                      <div className="p-3 bg-white/2 border border-white/5 rounded-xl flex items-center gap-3 col-span-2">
+                                        <Sunrise className="w-7 h-7 text-[#FF6B00] flex-shrink-0 opacity-80" />
+                                        <div className="flex-1 flex justify-between items-center pr-2">
+                                          <div>
+                                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Sunrise</p>
+                                            <p className="text-xs font-black text-white mt-0.5">{formatTime(activeData.city.sunrise)}</p>
+                                          </div>
+                                          <Sunset className="w-7 h-7 text-orange-600 flex-shrink-0 opacity-80 ml-4" />
+                                          <div className="text-right">
+                                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider">Sunset</p>
+                                            <p className="text-xs font-black text-white mt-0.5">{formatTime(activeData.city.sunset)}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-[10px] text-gray-400 font-bold leading-relaxed pt-4 border-t border-gray-400/10 mt-4">
+                                    Daylight duration calculated dynamically relative to geographical coordinates.
+                                  </div>
+                                </div>
+
+                                {/* 3. 12-HOUR EXPEDITION FORECAST */}
+                                <div className={`${cardClass} flex flex-col justify-between hover:border-white/10 hover:shadow-lg hover:shadow-[#FF6B00]/5 transition-all duration-300`}>
+                                  <div>
+                                    <div className="flex justify-between items-center border-b border-gray-400/10 pb-3 mb-4">
+                                      <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">12-Hour Chrono Forecast</span>
+                                      <span className="text-[9px] font-black text-sky-400 uppercase flex items-center gap-1"><Wind className="w-2.5 h-2.5" /> Pass Alert Active</span>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2.5">
+                                      {hourlyList.map((hr, idx) => (
+                                        <div
+                                          key={idx}
+                                          className={`border rounded-2xl p-2.5 text-center flex flex-col items-center hover:scale-[1.05] transition-all duration-200 cursor-default ${
+                                            headlightOn
+                                              ? hr.isNight
+                                                ? "bg-indigo-950/40 border-indigo-800/20 shadow shadow-indigo-900/20"
+                                                : "bg-sky-900/20 border-sky-800/15 shadow shadow-sky-900/10"
+                                              : "bg-white border-black/8 shadow-sm"
+                                          }`}
+                                        >
+                                          <span className="text-[9px] text-gray-400 font-bold">{hr.time}</span>
+                                          <span className="text-xl my-1.5 inline-block animate-weather-float" style={{ animationDelay: `${idx * 0.35}s` }}>
+                                            {hr.icon}
+                                          </span>
+                                          <span className="text-xs font-black">{hr.temp}</span>
+                                          <span className="text-[8px] text-sky-400 font-bold mt-1 flex items-center gap-0.5">
+                                            <Droplets className="w-2 h-2" /> {hr.rain}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="p-3 bg-orange-600/10 border border-orange-500/20 rounded-xl mt-4">
+                                    <p className="text-[9px] text-[#FF6B00] font-medium leading-relaxed">
+                                      <strong>Rider Safety</strong>: Wind vectors at {current.wind.speed} m/s. Keep pannier loads balanced.
+                                    </p>
+                                  </div>
+                                </div>
+
+                              </div>
+
+                              {/* 4. 7-DAY OUTLOOK */}
+                              <div className="pt-4">
+                                <h4 className="text-lg font-black mb-6">7-Day Mountain Outlook</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-4">
+                                  {sevenDayList.map((d, i) => (
+                                    <div
+                                      key={i}
+                                      className={`border rounded-2xl p-4 backdrop-blur-md hover:scale-[1.04] hover:border-white/20 transition-all duration-300 ${
+                                        headlightOn ? "bg-[#0A131F]/50 border-[#16324F]/30 text-white" : "bg-white border-black/10 text-[#0B1520]"
+                                      }`}
+                                    >
+                                      <p className="text-[10px] text-gray-400 font-black leading-none">{d.day}</p>
+                                      <span className="text-3xl my-3 block">{d.icon}</span>
+                                      <p className="text-sm font-black">{d.temp}</p>
+                                      <p className="text-[9px] text-[#FF6B00] font-black uppercase mt-2 tracking-wider truncate" title={d.cond}>
+                                        {d.cond}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()
+                      )}
+                    </motion.div>
                   )}
 
                   {/* ── 5. RIDE JOURNAL TAB ── */}
@@ -2607,6 +3590,25 @@ export default function DashboardPage() {
                         >
                           <Plus className="w-4 h-4" /> {showAddJournal ? "Close Panel" : "Log New Ride"}
                         </button>
+                      </div>
+
+                      {/* Statistics Dashboard Banner */}
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        {[
+                          { label: "Total Distance", val: `${journalStats.totalDistance} km`, icon: <Compass className="w-4 h-4 text-orange-500" /> },
+                          { label: "Rides Logged", val: journalStats.totalRides, icon: <Bike className="w-4 h-4 text-emerald-500" /> },
+                          { label: "Avg Ride Rating", val: `${journalStats.avgRating} / 5.0`, icon: <Star className="fill-orange-500 text-orange-500 w-4 h-4" /> },
+                          { label: "Max Lean Angle", val: `${journalStats.maxLean}°`, icon: <Zap className="w-4 h-4 text-amber-500" /> },
+                          { label: "Total Elevation Climb", val: `${journalStats.totalClimb} m`, icon: <Cloud className="w-4 h-4 text-sky-500" /> },
+                        ].map((stat, idx) => (
+                          <div key={idx} className={`${cardClass} p-4 flex flex-col justify-between`} style={{ padding: "16px" }}>
+                            <div className="flex justify-between items-center text-gray-400">
+                              <span className="text-[9px] font-black uppercase tracking-wider">{stat.label}</span>
+                              {stat.icon}
+                            </div>
+                            <span className={`text-lg font-black mt-2 ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{stat.val}</span>
+                          </div>
+                        ))}
                       </div>
 
                       {/* Timeline filters */}
@@ -2681,6 +3683,38 @@ export default function DashboardPage() {
                               </div>
                             </div>
 
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Rating</label>
+                              <div className="flex gap-1.5 items-center h-10">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    onClick={() => setNewJournalRating(star)}
+                                    className="focus:outline-none"
+                                  >
+                                    <Star className={`w-5 h-5 transition-colors ${newJournalRating >= star ? "fill-[#FF6B00] text-[#FF6B00]" : "text-gray-400"}`} />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Mark Favorite</label>
+                              <button
+                                type="button"
+                                onClick={() => setNewJournalFavorite(!newJournalFavorite)}
+                                className={`flex items-center justify-center h-10 w-24 rounded-xl border transition-all ${
+                                  newJournalFavorite
+                                    ? "bg-red-500/10 border-red-500 text-red-500"
+                                    : "border-white/10 text-gray-400 hover:text-white"
+                                }`}
+                              >
+                                <Heart className={`w-4 h-4 mr-1.5 ${newJournalFavorite ? "fill-red-500" : ""}`} />
+                                <span className="text-[10px] font-black uppercase">{newJournalFavorite ? "Yes" : "No"}</span>
+                              </button>
+                            </div>
+
                             <div className="md:col-span-3 flex flex-col gap-1.5">
                               <label className="text-[10px] font-black uppercase text-gray-400">Expedition Diary Notes</label>
                               <textarea
@@ -2725,7 +3759,10 @@ export default function DashboardPage() {
                               }`} />
 
                               {/* Card content */}
-                              <div className={`${cardClass} hover:scale-[1.01] transition-transform duration-300`}>
+                              <div
+                                className={`${cardClass} hover:scale-[1.01] transition-transform duration-300 cursor-pointer`}
+                                onClick={() => setExpandedJournalId(expandedJournalId === log.id ? null : log.id)}
+                              >
                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                                   
                                   {log.image && (
@@ -2736,24 +3773,147 @@ export default function DashboardPage() {
 
                                   <div className={log.image ? "md:col-span-9 space-y-3" : "md:col-span-12 space-y-3"}>
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-gray-400/10 pb-3">
-                                      <div>
-                                        <h4 className="text-base font-black leading-tight text-[#FF6B00]">{log.title}</h4>
-                                        <p className="text-[10px] text-gray-400 font-semibold mt-1">{log.date} · {log.motorcycle}</p>
+                                      <div className="flex justify-between items-start w-full md:w-auto">
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <h4 className="text-base font-black leading-tight text-[#FF6B00]">{log.title}</h4>
+                                            {log.isRoute && (
+                                              <span className="text-[8px] bg-[#FF6B00]/15 text-[#FF6B00] border border-[#FF6B00]/30 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                                                Route
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{log.date} · {log.motorcycle}</p>
+                                          <div className="flex gap-0.5 mt-1">
+                                            {Array.from({ length: 5 }).map((_, i) => (
+                                              <Star key={i} className={`w-3 h-3 ${i < (log.rating || 5) ? "fill-[#FF6B00] text-[#FF6B00]" : "text-gray-600"}`} />
+                                            ))}
+                                          </div>
+                                        </div>
                                       </div>
                                       
-                                      <div className="flex flex-wrap gap-2 text-[10px] font-black">
-                                        <span className="bg-black/45 border border-white/5 text-gray-300 px-3 py-1.5 rounded-full">
-                                          Dist: {log.distance} km
-                                        </span>
-                                        <span className="bg-[#FF6B00]/10 border border-[#FF6B00]/20 text-[#FF6B00] px-3 py-1.5 rounded-full">
-                                          Lean: {log.leanAngle}°
-                                        </span>
-                                        <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400 px-3 py-1.5 rounded-full">
-                                          Alt: {log.elevation}m
-                                        </span>
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex flex-wrap gap-2 text-[10px] font-black">
+                                          <span className="bg-black/45 border border-white/5 text-gray-300 px-3 py-1.5 rounded-full">
+                                            Dist: {log.distance} km
+                                          </span>
+                                          {log.leanAngle && (
+                                            <span className="bg-[#FF6B00]/10 border border-[#FF6B00]/20 text-[#FF6B00] px-3 py-1.5 rounded-full">
+                                              Lean: {log.leanAngle}°
+                                            </span>
+                                          )}
+                                          <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400 px-3 py-1.5 rounded-full">
+                                            Alt: {log.elevation}m
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-1.5 border-l border-white/10 pl-3">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToggleFavoriteJournal(log.id);
+                                            }}
+                                            className={`p-2 rounded-xl border transition-all ${
+                                              log.favorite
+                                                ? "bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-500/20"
+                                                : "border-white/5 text-gray-500 hover:text-red-500 hover:bg-white/5"
+                                            }`}
+                                            title="Mark as Favorite"
+                                          >
+                                            <Heart className={`w-3.5 h-3.5 ${log.favorite ? "fill-red-500 text-red-500" : ""}`} />
+                                          </button>
+                                        </div>
                                       </div>
                                     </div>
                                     <p className="text-xs leading-relaxed text-gray-300 font-medium">{log.notes}</p>
+                                    
+                                    {expandedJournalId === log.id && (
+                                      <div className="pt-4 border-t border-white/5 space-y-4 text-xs text-gray-400 font-semibold">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                          {log.isRoute ? (
+                                            <>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Start Location</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.start}</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Destination</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.end}</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Est. Duration</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.duration}</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Fuel Cost</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>₹{log.fuelCost} ({log.fuelRequired ? `${log.fuelRequired.toFixed(1)} L` : "N/A"})</span>
+                                              </div>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Motorcycle Used</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.motorcycle}</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Expedition Rating</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.rating} / 5 Stars</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Peak Altitude</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.elevation} m</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-[10px] text-gray-500 uppercase block">Lean Angle Reach</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.leanAngle || "0"}°</span>
+                                              </div>
+                                            </>
+                                          )}
+                                        </div>
+                                        
+                                        <div className="flex gap-3 pt-2">
+                                          {log.isRoute && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleLoadRoute({
+                                                  id: log.id,
+                                                  name: log.title,
+                                                  start: log.start || "",
+                                                  end: log.end || "",
+                                                  coordinates: log.coordinates || [],
+                                                  option: log.option || "Scenic",
+                                                  distance: log.distance,
+                                                  duration: log.duration || "",
+                                                  roadType: log.roadType || "",
+                                                  elevation: log.elevation,
+                                                  fuelCost: log.fuelCost || 0,
+                                                  fuelRequired: log.fuelRequired || 0,
+                                                  date: log.date,
+                                                  motorcycle: log.motorcycle
+                                                });
+                                                setActiveTab("My Routes");
+                                              }}
+                                              className="px-4 py-2 bg-[#FF6B00] hover:bg-orange-600 text-white rounded-xl text-[10px] font-black transition-all"
+                                            >
+                                              Load Route in Planner
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteSavedRoute(log.id);
+                                            }}
+                                            className="px-4 py-2 border border-red-500/25 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl text-[10px] font-black transition-all"
+                                          >
+                                            Delete Log
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
 
                                 </div>
@@ -2806,7 +3966,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          <div className="p-4 bg-[#FF6B00]/10 border border-[#FF6B00]/25 rounded-2xl text-left w-full">
+                           <div className="p-4 bg-[#FF6B00]/10 border border-[#FF6B00]/25 rounded-2xl text-left w-full">
                             <h5 className="text-[10px] font-black text-[#FF6B00] uppercase tracking-widest mb-1.5">Cargo Recommendation</h5>
                             <p className="text-[10px] text-[#FF6B00]/90 font-medium leading-relaxed">
                               {activeBike.id === "bmw_gs" && "GS Aluminum Cases: Keep heaviest engine guards & tool kits lower. Split pannier volumes."}
@@ -2815,6 +3975,32 @@ export default function DashboardPage() {
                               {activeBike.id === "apache_rr310" && "SuperSport Race Pack: Keep weight low. Tail pack limits speeds. Ride aerodynamically."}
                               {activeBike.id === "honda_cb350" && "Roadster Classic Canvas: Secure straps from hot exhaust shields."}
                             </p>
+                          </div>
+
+                          {/* Trip Templates & Reset */}
+                          <div className="w-full mt-6 space-y-4 pt-4 border-t border-white/5">
+                            <div className="flex flex-col gap-1.5 text-left">
+                              <label className="text-[10px] font-black uppercase text-gray-400">Apply Trip Template</label>
+                              <div className="grid grid-cols-2 gap-2">
+                                {(["Mountain Climb", "Coastal Cruise", "Weekend Getaway"] as const).map((template) => (
+                                  <button
+                                    key={template}
+                                    type="button"
+                                    onClick={() => handleApplyTemplate(template)}
+                                    className={`py-2 px-3 text-[9px] font-black uppercase tracking-wider rounded-xl border transition-all duration-200 border-white/10 text-white/70 hover:text-white hover:bg-white/5`}
+                                  >
+                                    {template}
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={handleResetPacking}
+                                  className="col-span-2 py-2 px-3 text-[9px] font-black uppercase tracking-wider rounded-xl border border-red-500/25 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all duration-200"
+                                >
+                                  Reset Packed Items
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
