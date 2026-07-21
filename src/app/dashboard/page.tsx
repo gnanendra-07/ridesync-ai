@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -41,10 +41,10 @@ import {
 } from "lucide-react";
 import type L from "leaflet";
 
-/* ─── Predefined Landmark Coordinates for Route Mapping ─── */
+/* â”€â”€â”€ Predefined Landmark Coordinates for Route Mapping â”€â”€â”€ */
 
 
-/* ─── Predefined Ride Images for Journal ─── */
+/* â”€â”€â”€ Predefined Ride Images for Journal â”€â”€â”€ */
 const SCENIC_IMAGES = [
   "/hero_day.png",
   "/hero_night.png",
@@ -52,7 +52,7 @@ const SCENIC_IMAGES = [
   "/hero_rider_ghat.png",
 ];
 
-/* ─── Interfaces ─────────────────────────────────────────── */
+/* â”€â”€â”€ Interfaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 interface Message {
   sender: "user" | "ai";
   text: string;
@@ -124,6 +124,14 @@ interface PackingItem {
   packed: boolean;
 }
 
+interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  relation: string;
+  isPrimary: boolean;
+}
+
 interface OpenWeatherForecast {
   city: {
     name: string;
@@ -152,7 +160,7 @@ interface OpenWeatherForecast {
   }>;
 }
 
-/* ─── Constants & Reference Data ──────────────────────────── */
+/* â”€â”€â”€ Constants & Reference Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const MOTORCYCLES: Motorcycle[] = [
   {
     id: "bmw_gs",
@@ -310,11 +318,11 @@ const PACKING_TEMPLATES = {
 };
 
 const weatherCondition = {
-  temp: "18°C",
+  temp: "18Â°C",
   sky: "Partly Cloudy",
   wind: "16 km/h NNE",
   rainChance: "15%",
-  feelsLike: "16°C",
+  feelsLike: "16Â°C",
   visibility: "12 km",
 };
 
@@ -426,8 +434,8 @@ const get7DayForecast = (forecastList: OpenWeatherForecast['list'] | null, destN
       const dayName = date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
       return {
         day: dayName,
-        temp: `${Math.round(item.main.temp)}°C`,
-        icon: item.weather[0].main === "Rain" ? "🌧️" : item.weather[0].main === "Clouds" ? "⛅" : "☀️",
+        temp: `${Math.round(item.main.temp)}Â°C`,
+        icon: item.weather[0].main === "Rain" ? "ðŸŒ§ï¸" : item.weather[0].main === "Clouds" ? "â›…" : "â˜€ï¸",
         cond: item.weather[0].description,
       };
     });
@@ -443,15 +451,15 @@ const get7DayForecast = (forecastList: OpenWeatherForecast['list'] | null, destN
       const tempVal = Math.round(lastItem.main.temp) + variance;
       
       const conds = [
-        { icon: "☀️", cond: "Sunny Skies" },
-        { icon: "⛅", cond: "Scattered Clouds" },
-        { icon: "🌤️", cond: "Partly Sunny" }
+        { icon: "â˜€ï¸", cond: "Sunny Skies" },
+        { icon: "â›…", cond: "Scattered Clouds" },
+        { icon: "ðŸŒ¤ï¸", cond: "Partly Sunny" }
       ];
       const selectedCond = conds[results.length % conds.length];
       
       results.push({
         day: dayName,
-        temp: `${tempVal}°C`,
+        temp: `${tempVal}Â°C`,
         icon: selectedCond.icon,
         cond: selectedCond.cond,
       });
@@ -467,36 +475,36 @@ const get7DayForecast = (forecastList: OpenWeatherForecast['list'] | null, destN
   
   let tempRange = { min: 15, max: 22 };
   let defaultConds = [
-    { icon: "🌤️", cond: "Partly Sunny" },
-    { icon: "☀️", cond: "Bright Sunny" },
-    { icon: "⛅", cond: "Scattered Clouds" },
-    { icon: "🌧️", cond: "Light Showers" },
-    { icon: "⛅", cond: "Partly Cloudy" },
-    { icon: "☀️", cond: "Clear Skies" },
-    { icon: "⛈️", cond: "Lightning Storm" }
+    { icon: "ðŸŒ¤ï¸", cond: "Partly Sunny" },
+    { icon: "â˜€ï¸", cond: "Bright Sunny" },
+    { icon: "â›…", cond: "Scattered Clouds" },
+    { icon: "ðŸŒ§ï¸", cond: "Light Showers" },
+    { icon: "â›…", cond: "Partly Cloudy" },
+    { icon: "â˜€ï¸", cond: "Clear Skies" },
+    { icon: "â›ˆï¸", cond: "Lightning Storm" }
   ];
   
   if (isSpiti || isLadakh) {
     tempRange = { min: 5, max: 15 };
     defaultConds = [
-      { icon: "❄️", cond: "Chilly / Clear" },
-      { icon: "💨", cond: "Gale Winds" },
-      { icon: "⛅", cond: "Overcast" },
-      { icon: "🏔️", cond: "Mountain Snow" },
-      { icon: "☀️", cond: "Clear Sunny" },
-      { icon: "⛅", cond: "Passing Clouds" },
-      { icon: "🌬️", cond: "High Winds" }
+      { icon: "â„ï¸", cond: "Chilly / Clear" },
+      { icon: "ðŸ’¨", cond: "Gale Winds" },
+      { icon: "â›…", cond: "Overcast" },
+      { icon: "ðŸ”ï¸", cond: "Mountain Snow" },
+      { icon: "â˜€ï¸", cond: "Clear Sunny" },
+      { icon: "â›…", cond: "Passing Clouds" },
+      { icon: "ðŸŒ¬ï¸", cond: "High Winds" }
     ];
   } else if (isGoa) {
     tempRange = { min: 26, max: 32 };
     defaultConds = [
-      { icon: "☀️", cond: "Tropical Sun" },
-      { icon: "🌧️", cond: "Heavy Monsoon" },
-      { icon: "⛅", cond: "Humid / Overcast" },
-      { icon: "🌧️", cond: "Coastal Rain" },
-      { icon: "☀️", cond: "Clear Coastal" },
-      { icon: "⛅", cond: "Scattered Clouds" },
-      { icon: "🌤️", cond: "Warm Sun" }
+      { icon: "â˜€ï¸", cond: "Tropical Sun" },
+      { icon: "ðŸŒ§ï¸", cond: "Heavy Monsoon" },
+      { icon: "â›…", cond: "Humid / Overcast" },
+      { icon: "ðŸŒ§ï¸", cond: "Coastal Rain" },
+      { icon: "â˜€ï¸", cond: "Clear Coastal" },
+      { icon: "â›…", cond: "Scattered Clouds" },
+      { icon: "ðŸŒ¤ï¸", cond: "Warm Sun" }
     ];
   }
   
@@ -508,7 +516,7 @@ const get7DayForecast = (forecastList: OpenWeatherForecast['list'] | null, destN
     const cond = defaultConds[i % defaultConds.length];
     results.push({
       day: dayName,
-      temp: `${tempVal}°C / ${tempVal - 6}°C`,
+      temp: `${tempVal}Â°C / ${tempVal - 6}Â°C`,
       icon: cond.icon,
       cond: cond.cond
     });
@@ -1006,10 +1014,25 @@ interface LocationSuggestion {
 
   // GPS Simulation
   const [gpsCoords, setGpsCoords] = useState({
-    lat: "32.2396° N",
-    lng: "77.1887° E",
+    lat: "32.2396Â° N",
+    lng: "77.1887Â° E",
     alt: "3,450 m",
   });
+
+  // Real GPS state
+  const [realGpsCoords, setRealGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+
+  // Emergency Contacts state
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactPhone, setNewContactPhone] = useState("");
+  const [newContactRelation, setNewContactRelation] = useState("");
+
+  // Offline Safety Guide accordion
+  const [openSafetySection, setOpenSafetySection] = useState<string | null>(null);
 
   // Leaflet refs
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -1107,6 +1130,19 @@ interface LocationSuggestion {
         }
         if (parsedPacking && parsedPacking.length > 0) {
           setPackingItems(parsedPacking);
+        }
+
+        // Load emergency contacts
+        const storedContacts = localStorage.getItem("ridesync_sos_contacts");
+        if (storedContacts) {
+          try {
+            const parsedContacts: EmergencyContact[] = JSON.parse(storedContacts);
+            if (parsedContacts && parsedContacts.length > 0) {
+              setEmergencyContacts(parsedContacts);
+            }
+          } catch {
+            console.error("Error parsing stored emergency contacts");
+          }
         }
 
         if (storedTheme !== null) {
@@ -1248,8 +1284,8 @@ interface LocationSuggestion {
       const curLat = parseFloat("32.2396") + parseFloat(randomDec());
       const curLng = parseFloat("77.1887") + parseFloat(randomDec());
       setGpsCoords({
-        lat: `${curLat.toFixed(4)}° N`,
-        lng: `${curLng.toFixed(4)}° E`,
+        lat: `${curLat.toFixed(4)}Â° N`,
+        lng: `${curLng.toFixed(4)}Â° E`,
         alt: `${Math.floor(3450 + Math.random() * 10 - 5)} m`,
       });
     }, 3000);
@@ -1761,7 +1797,7 @@ interface LocationSuggestion {
       fuelRequired: activeRouteData.fuelRequired,
       motorcycle: activeBike.name,
       isRoute: true,
-      notes: `Planned via OSRM (${selectedRouteOption} engine). Duration: ${activeRouteData.duration}. Fuel cost: ₹${activeRouteData.fuelCost}.`,
+      notes: `Planned via OSRM (${selectedRouteOption} engine). Duration: ${activeRouteData.duration}. Fuel cost: â‚¹${activeRouteData.fuelCost}.`,
       rating: 5,
       favorite: false,
       image: "/hero_rider_standing.png"
@@ -1968,8 +2004,81 @@ interface LocationSuggestion {
     setSosCountdown(3);
     if (sosIntervalRef.current) clearTimeout(sosIntervalRef.current);
   };
+  // Emergency Contact CRUD Handlers
+  const persistContacts = (contacts: EmergencyContact[]) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ridesync_sos_contacts", JSON.stringify(contacts));
+    }
+  };
+
+  const handleAddContact = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newContactName.trim() || !newContactPhone.trim()) return;
+    const newContact: EmergencyContact = {
+      id: `contact_${Date.now()}`,
+      name: newContactName.trim(),
+      phone: newContactPhone.trim(),
+      relation: newContactRelation.trim() || "Emergency Contact",
+      isPrimary: emergencyContacts.length === 0,
+    };
+    const updated = [...emergencyContacts, newContact];
+    setEmergencyContacts(updated);
+    persistContacts(updated);
+    setNewContactName("");
+    setNewContactPhone("");
+    setNewContactRelation("");
+    setShowAddContact(false);
+  };
+
+  const handleDeleteContact = (id: string) => {
+    const filtered = emergencyContacts.filter((c) => c.id !== id);
+    // If deleted contact was primary, set the first remaining as primary
+    const updated = filtered.map((c, idx) =>
+      idx === 0 ? { ...c, isPrimary: true } : c
+    );
+    setEmergencyContacts(updated);
+    persistContacts(updated);
+  };
+
+  const handleSetPrimaryContact = (id: string) => {
+    const updated = emergencyContacts.map((c) => ({ ...c, isPrimary: c.id === id }));
+    setEmergencyContacts(updated);
+    persistContacts(updated);
+  };
+
+  // Real GPS Handler
+  const handleGetGPS = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setGpsError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, altitude } = position.coords;
+        setRealGpsCoords({ lat: latitude, lng: longitude });
+        setGpsCoords({
+          lat: `${Math.abs(latitude).toFixed(4)}Â° ${latitude >= 0 ? "N" : "S"}`,
+          lng: `${Math.abs(longitude).toFixed(4)}Â° ${longitude >= 0 ? "E" : "W"}`,
+          alt: altitude ? `${Math.round(altitude)} m` : "N/A",
+        });
+        // Pan SOS map to real location if map is loaded
+        if (sosMapInstanceRef.current) {
+          sosMapInstanceRef.current.setView([latitude, longitude], 14);
+        }
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsError(`GPS Error: ${err.message}`);
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Export GPX
+
   const exportGPX = () => {
     if (!activeRouteData) {
       alert("Please configure and select a route in the Route Planner tab first before exporting GPX.");
@@ -2164,16 +2273,16 @@ interface LocationSuggestion {
         headlightOn ? "night-theme bg-[#060D15] text-white" : "day-theme bg-[#F0F2F5] text-[#0B1520]"
       }`}
     >
-      {/* ── Ambient Background Glows ── */}
+      {/* â”€â”€ Ambient Background Glows â”€â”€ */}
       <div className="fixed top-0 right-0 w-[700px] h-[700px] rounded-full bg-[#FF6B00]/5 blur-[220px] pointer-events-none z-0" />
       <div className="fixed bottom-0 left-0 w-[600px] h-[600px] rounded-full bg-blue-600/4 blur-[200px] pointer-events-none z-0" />
       {headlightOn && (
         <div className="fixed top-1/3 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] rounded-full bg-[#FF6B00]/3 blur-[300px] pointer-events-none z-0" />
       )}
 
-      {/* ════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           LEFT SIDEBAR (Desktop Only)
-      ════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <aside
         className={`hidden lg:flex flex-col w-[272px] border-r px-5 py-6 flex-shrink-0 justify-between sticky top-0 h-screen z-30 backdrop-blur-2xl theme-transition ${
           headlightOn
@@ -2252,9 +2361,9 @@ interface LocationSuggestion {
         </div>
       </aside>
 
-      {/* ════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           MAIN WORKSPACE
-      ════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
 
         {/* TOP HEADER */}
@@ -2385,9 +2494,9 @@ interface LocationSuggestion {
               exit={{ opacity: 0, y: -10, filter: "blur(3px)" }}
               transition={{ duration: 0.36, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
-              {/* ══════════════════════════════════════════
+              {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                   DASHBOARD HOME VIEW (Overview tab)
-              ══════════════════════════════════════════ */}
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
               {activeTab === "Overview" && (
                 <div className="px-6 md:px-10 py-6 max-w-[1440px] mx-auto space-y-6">
                   
@@ -2456,7 +2565,7 @@ interface LocationSuggestion {
                         {/* Title text */}
                         <div className="my-auto pt-4 pb-4">
                           <p className="text-[10px] text-[#FF6B00] font-black tracking-[0.2em] uppercase">
-                            {activeBike.name} · {activeBike.edition}
+                            {activeBike.name} Â· {activeBike.edition}
                           </p>
                           <h1 className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white leading-[1.1] mt-1">
                             Welcome back,
@@ -2565,9 +2674,9 @@ interface LocationSuggestion {
                 </div>
               )}
 
-              {/* ══════════════════════════════════════════
+              {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                   SUB-MODULE VIEWS (Back-button wrapper)
-              ══════════════════════════════════════════ */}
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
               {activeTab !== "Overview" && (
                 <div className="px-6 md:px-10 py-6 max-w-[1440px] mx-auto space-y-6">
                   {/* Navigation breadcrumb */}
@@ -2589,7 +2698,7 @@ interface LocationSuggestion {
                     </span>
                   </div>
 
-                  {/* ── 1. MY GARAGE TAB ── */}
+                  {/* â”€â”€ 1. MY GARAGE TAB â”€â”€ */}
                   {activeTab === "Garage" && (
                     <div className="space-y-8">
                       <div className="flex justify-between items-center">
@@ -2607,7 +2716,7 @@ interface LocationSuggestion {
                               <div>
                                 <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Active Vessel</span>
                                 <h3 className="text-3xl font-black mt-1 leading-none">{activeBike.name}</h3>
-                                <p className="text-xs text-gray-400 font-semibold mt-2">{activeBike.edition} · {activeBike.type}</p>
+                                <p className="text-xs text-gray-400 font-semibold mt-2">{activeBike.edition} Â· {activeBike.type}</p>
                               </div>
                               <div className="px-3.5 py-1.5 rounded-full bg-[#FF6B00]/10 border border-[#FF6B00]/25 text-[#FF6B00] text-xs font-black">
                                 GPS Synced
@@ -2657,7 +2766,7 @@ interface LocationSuggestion {
                               onClick={() => setActiveTab("AI Planner")}
                               className="w-full py-2.5 bg-[#FF6B00] hover:bg-orange-600 text-white font-black text-xs rounded-xl tracking-widest uppercase shadow-lg shadow-[#FF6B00]/20 transition-colors"
                             >
-                              Plan Expedition →
+                              Plan Expedition â†’
                             </button>
                           </div>
                         </div>
@@ -2744,7 +2853,7 @@ interface LocationSuggestion {
                     </div>
                   )}
 
-                  {/* ── 2. AI TRIP PLANNER TAB ── */}
+                  {/* â”€â”€ 2. AI TRIP PLANNER TAB â”€â”€ */}
                   {activeTab === "AI Planner" && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Input form */}
@@ -2871,7 +2980,7 @@ interface LocationSuggestion {
                                       )}
                                       
                                       {dayParts.map((dayText, idx) => {
-                                        const dayIcons = ["🧭", "⛰️", "🌊", "🛣️", "🏁"];
+                                        const dayIcons = ["ðŸ§­", "â›°ï¸", "ðŸŒŠ", "ðŸ›£ï¸", "ðŸ"];
                                         const cleanText = dayText.replace(/^- DAY \d+:?\s*/i, "").trim();
                                         const dayMatch = dayText.match(/DAY (\d+)/i);
                                         const dayNum = dayMatch ? dayMatch[1] : String(idx + 1);
@@ -2888,7 +2997,7 @@ interface LocationSuggestion {
                                             </div>
                                             <div className="pb-5 flex-1 min-w-0">
                                               <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-base">{dayIcons[idx % dayIcons.length] || "🏍️"}</span>
+                                                <span className="text-base">{dayIcons[idx % dayIcons.length] || "ðŸï¸"}</span>
                                                 <span className="text-[10px] font-black text-[#FF6B00] uppercase tracking-widest">Day {dayNum}</span>
                                               </div>
                                               <p className="text-xs leading-relaxed text-gray-300 font-medium">{cleanText}</p>
@@ -2953,7 +3062,7 @@ interface LocationSuggestion {
                     </div>
                   )}
 
-                  {/* ── 3. ROUTE PLANNER TAB (Leaflet Integration) ── */}
+                  {/* â”€â”€ 3. ROUTE PLANNER TAB (Leaflet Integration) â”€â”€ */}
                   {activeTab === "My Routes" && (
                     <div className="space-y-8">
                       {/* Inputs, route options and statistics */}
@@ -3055,7 +3164,7 @@ interface LocationSuggestion {
                               </select>
                             </div>
                             <div className="flex flex-col gap-1.5 w-24">
-                              <label className="text-[10px] font-black uppercase text-gray-400">Price (₹/L)</label>
+                              <label className="text-[10px] font-black uppercase text-gray-400">Price (â‚¹/L)</label>
                               <input
                                 type="number"
                                 value={fuelPrice}
@@ -3113,7 +3222,7 @@ interface LocationSuggestion {
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
                                   <p className="text-[9px] font-bold text-gray-400 uppercase">Est. Fuel Cost</p>
-                                  <p className="text-base font-black mt-0.5 text-[#FF6B00]">₹{activeRouteData.fuelCost.toLocaleString()}</p>
+                                  <p className="text-base font-black mt-0.5 text-[#FF6B00]">â‚¹{activeRouteData.fuelCost.toLocaleString()}</p>
                                 </div>
                                 <div className="p-3 bg-black/20 rounded-2xl border border-white/5 text-center">
                                   <p className="text-[9px] font-bold text-gray-400 uppercase">Fuel Required</p>
@@ -3228,9 +3337,9 @@ interface LocationSuggestion {
                                 >
                                   <div className="text-xs flex-1 min-w-0 pr-2">
                                     <p className="font-black text-white group-hover:text-[#FF6B00] transition-colors truncate">{route.name}</p>
-                                    <p className="text-[9px] text-[#FF6B00] font-semibold truncate">{route.start.split(",")[0]} ➔ {route.end.split(",")[0]}</p>
+                                    <p className="text-[9px] text-[#FF6B00] font-semibold truncate">{route.start.split(",")[0]} âž” {route.end.split(",")[0]}</p>
                                     <p className="text-[8px] text-gray-400 mt-0.5 font-bold uppercase tracking-wider truncate">
-                                      {route.option} · {route.distance} · {route.duration} · ₹{route.fuelCost} · {route.motorcycle}
+                                      {route.option} Â· {route.distance} Â· {route.duration} Â· â‚¹{route.fuelCost} Â· {route.motorcycle}
                                     </p>
                                   </div>
                                   <button
@@ -3270,9 +3379,9 @@ interface LocationSuggestion {
                                   className="p-3 rounded-2xl bg-black/20 hover:bg-black/30 border border-white/5 cursor-pointer hover:scale-[1.01] transition-all duration-200 flex justify-between items-center group"
                                 >
                                   <div className="text-xs flex-1 min-w-0 pr-2">
-                                    <p className="font-black text-white group-hover:text-sky-400 transition-colors truncate">{route.name || `${route.start.split(",")[0]} ➔ ${route.end.split(",")[0]}`}</p>
+                                    <p className="font-black text-white group-hover:text-sky-400 transition-colors truncate">{route.name || `${route.start.split(",")[0]} âž” ${route.end.split(",")[0]}`}</p>
                                     <p className="text-[8px] text-gray-400 mt-0.5 font-bold uppercase tracking-wider truncate">
-                                      {route.option} · {route.distance} · {route.duration} · {route.motorcycle || "BMW R1250 GS"}
+                                      {route.option} Â· {route.distance} Â· {route.duration} Â· {route.motorcycle || "BMW R1250 GS"}
                                     </p>
                                   </div>
                                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
@@ -3285,7 +3394,7 @@ interface LocationSuggestion {
                     </div>
                   )}
 
-                  {/* ── 4. WEATHER TAB (OpenWeather Integration) ── */}
+                  {/* â”€â”€ 4. WEATHER TAB (OpenWeather Integration) â”€â”€ */}
                   {activeTab === "Weather Forecast" && (
                     <motion.div
                       initial={{ opacity: 0, y: 15 }}
@@ -3405,14 +3514,14 @@ interface LocationSuggestion {
                             const isNight = date.getHours() < 6 || date.getHours() > 18;
                             const itemCond = item.weather[0].main.toLowerCase();
                             
-                            let emoji = "☀️";
-                            if (itemCond.includes("rain")) emoji = "🌧️";
-                            else if (itemCond.includes("cloud")) emoji = "⛅";
-                            else if (itemCond.includes("snow")) emoji = "❄️";
+                            let emoji = "â˜€ï¸";
+                            if (itemCond.includes("rain")) emoji = "ðŸŒ§ï¸";
+                            else if (itemCond.includes("cloud")) emoji = "â›…";
+                            else if (itemCond.includes("snow")) emoji = "â„ï¸";
                             
                             return {
                               time: timeStr,
-                              temp: `${Math.round(item.main.temp)}°C`,
+                              temp: `${Math.round(item.main.temp)}Â°C`,
                               icon: emoji,
                               rain: item.pop !== undefined ? `${Math.round(item.pop * 100)}%` : "15%",
                               wind: `${item.wind.speed} m/s`,
@@ -3437,7 +3546,7 @@ interface LocationSuggestion {
                                     <div className="flex justify-between items-center my-4">
                                       <div>
                                         <h4 className="text-5xl font-black tracking-tighter">
-                                          {Math.round(current.main.temp)}°C
+                                          {Math.round(current.main.temp)}Â°C
                                         </h4>
                                         <p className="text-sm text-white font-bold mt-1.5 flex items-center gap-1">
                                           {activeData.city.name}, {activeData.city.country}
@@ -3452,7 +3561,7 @@ interface LocationSuggestion {
                                   <div className="space-y-3.5 border-t border-gray-400/10 pt-4 mt-4">
                                     <div className="flex justify-between text-xs border-b border-gray-400/5 pb-2">
                                       <span className="text-gray-400 font-bold flex items-center gap-1.5"><Thermometer className="w-3.5 h-3.5 text-[#FF6B00]" /> Feels-Like Index</span>
-                                      <span className="font-black">{Math.round(current.main.feels_like)}°C</span>
+                                      <span className="font-black">{Math.round(current.main.feels_like)}Â°C</span>
                                     </div>
                                     <div className="flex justify-between text-xs border-b border-gray-400/5 pb-2">
                                       <span className="text-gray-400 font-bold flex items-center gap-1.5"><Wind className="w-3.5 h-3.5 text-[#FF6B00]" /> Wind Speed & Vectors</span>
@@ -3576,7 +3685,7 @@ interface LocationSuggestion {
                     </motion.div>
                   )}
 
-                  {/* ── 5. RIDE JOURNAL TAB ── */}
+                  {/* â”€â”€ 5. RIDE JOURNAL TAB â”€â”€ */}
                   {activeTab === "Ride Journal" && (
                     <div className="space-y-8">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -3598,7 +3707,7 @@ interface LocationSuggestion {
                           { label: "Total Distance", val: `${journalStats.totalDistance} km`, icon: <Compass className="w-4 h-4 text-orange-500" /> },
                           { label: "Rides Logged", val: journalStats.totalRides, icon: <Bike className="w-4 h-4 text-emerald-500" /> },
                           { label: "Avg Ride Rating", val: `${journalStats.avgRating} / 5.0`, icon: <Star className="fill-orange-500 text-orange-500 w-4 h-4" /> },
-                          { label: "Max Lean Angle", val: `${journalStats.maxLean}°`, icon: <Zap className="w-4 h-4 text-amber-500" /> },
+                          { label: "Max Lean Angle", val: `${journalStats.maxLean}Â°`, icon: <Zap className="w-4 h-4 text-amber-500" /> },
                           { label: "Total Elevation Climb", val: `${journalStats.totalClimb} m`, icon: <Cloud className="w-4 h-4 text-sky-500" /> },
                         ].map((stat, idx) => (
                           <div key={idx} className={`${cardClass} p-4 flex flex-col justify-between`} style={{ padding: "16px" }}>
@@ -3648,7 +3757,7 @@ interface LocationSuggestion {
                               { label: "Route Title", val: newJournalTitle, set: setNewJournalTitle, placeholder: "e.g. Rohtang Pass Ridge climb", required: true },
                               { label: "Date", val: newJournalDate, set: setNewJournalDate, placeholder: "", required: true, type: "date" },
                               { label: "Distance (km)", val: newJournalDist, set: setNewJournalDist, placeholder: "e.g. 140", required: false },
-                              { label: "Max Lean Angle (°)", val: newJournalLean, set: setNewJournalLean, placeholder: "e.g. 42", required: false },
+                              { label: "Max Lean Angle (Â°)", val: newJournalLean, set: setNewJournalLean, placeholder: "e.g. 42", required: false },
                               { label: "Peak Elevation Climb (m)", val: newJournalElev, set: setNewJournalElev, placeholder: "e.g. 3900", required: false },
                             ].map((f) => (
                               <div key={f.label} className="flex flex-col gap-1.5">
@@ -3783,7 +3892,7 @@ interface LocationSuggestion {
                                               </span>
                                             )}
                                           </div>
-                                          <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{log.date} · {log.motorcycle}</p>
+                                          <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{log.date} Â· {log.motorcycle}</p>
                                           <div className="flex gap-0.5 mt-1">
                                             {Array.from({ length: 5 }).map((_, i) => (
                                               <Star key={i} className={`w-3 h-3 ${i < (log.rating || 5) ? "fill-[#FF6B00] text-[#FF6B00]" : "text-gray-600"}`} />
@@ -3799,7 +3908,7 @@ interface LocationSuggestion {
                                           </span>
                                           {log.leanAngle && (
                                             <span className="bg-[#FF6B00]/10 border border-[#FF6B00]/20 text-[#FF6B00] px-3 py-1.5 rounded-full">
-                                              Lean: {log.leanAngle}°
+                                              Lean: {log.leanAngle}Â°
                                             </span>
                                           )}
                                           <span className="bg-sky-500/10 border border-sky-500/20 text-sky-400 px-3 py-1.5 rounded-full">
@@ -3847,7 +3956,7 @@ interface LocationSuggestion {
                                               </div>
                                               <div>
                                                 <span className="text-[10px] text-gray-500 uppercase block">Fuel Cost</span>
-                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>₹{log.fuelCost} ({log.fuelRequired ? `${log.fuelRequired.toFixed(1)} L` : "N/A"})</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>â‚¹{log.fuelCost} ({log.fuelRequired ? `${log.fuelRequired.toFixed(1)} L` : "N/A"})</span>
                                               </div>
                                             </>
                                           ) : (
@@ -3866,7 +3975,7 @@ interface LocationSuggestion {
                                               </div>
                                               <div>
                                                 <span className="text-[10px] text-gray-500 uppercase block">Lean Angle Reach</span>
-                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.leanAngle || "0"}°</span>
+                                                <span className={`font-black ${headlightOn ? "text-white" : "text-[#0B1520]"}`}>{log.leanAngle || "0"}Â°</span>
                                               </div>
                                             </>
                                           )}
@@ -3926,7 +4035,7 @@ interface LocationSuggestion {
                     </div>
                   )}
 
-                  {/* ── 6. PACKING ASSISTANT TAB (Circular Progress) ── */}
+                  {/* â”€â”€ 6. PACKING ASSISTANT TAB (Circular Progress) â”€â”€ */}
                   {activeTab === "Packing Assistant" && (
                     <div className="space-y-8">
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -3983,12 +4092,7 @@ interface LocationSuggestion {
                               <label className="text-[10px] font-black uppercase text-gray-400">Apply Trip Template</label>
                               <div className="grid grid-cols-2 gap-2">
                                 {(["Mountain Climb", "Coastal Cruise", "Weekend Getaway"] as const).map((template) => (
-                                  <button
-                                    key={template}
-                                    type="button"
-                                    onClick={() => handleApplyTemplate(template)}
-                                    className={`py-2 px-3 text-[9px] font-black uppercase tracking-wider rounded-xl border transition-all duration-200 border-white/10 text-white/70 hover:text-white hover:bg-white/5`}
-                                  >
+                                  <button key={template} type="button" onClick={() => handleApplyTemplate(template)} className="py-2 px-3 text-[9px] font-black uppercase tracking-wider rounded-xl border transition-all duration-200 border-white/10 text-white/70 hover:text-white hover:bg-white/5">
                                     {template}
                                   </button>
                                 ))}
@@ -4004,14 +4108,13 @@ interface LocationSuggestion {
                           </div>
                         </div>
 
-                        {/* Interactive checklist lists */}
                         <div className={`lg:col-span-2 ${cardClass}`}>
                           <h4 className="text-lg font-black mb-6 pb-4 border-b border-gray-400/10">Expedition Checklists</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-6">
                               {[
-                                { title: "🛡️ Riding Gear", cat: "gear" as const },
-                                { title: "📋 Documentation", cat: "docs" as const },
+                                { title: "ðŸ›¡ï¸ Riding Gear", cat: "gear" as const },
+                                { title: "ðŸ“‹ Documentation", cat: "docs" as const },
                               ].map(({ title, cat }) => (
                                 <div key={cat}>
                                   <h5 className="text-[11px] font-black uppercase text-gray-400 tracking-wider mb-3">{title}</h5>
@@ -4032,8 +4135,8 @@ interface LocationSuggestion {
                             </div>
                             <div className="space-y-6">
                               {[
-                                { title: "🔧 Tools & Spares", cat: "tools" as const },
-                                { title: "🩹 Personal & Medical", cat: "personal" as const },
+                                { title: "ðŸ”§ Tools & Spares", cat: "tools" as const },
+                                { title: "ðŸ©¹ Personal & Medical", cat: "personal" as const },
                               ].map(({ title, cat }) => (
                                 <div key={cat}>
                                   <h5 className="text-[11px] font-black uppercase text-gray-400 tracking-wider mb-3">{title}</h5>
@@ -4058,39 +4161,76 @@ interface LocationSuggestion {
                     </div>
                   )}
 
-                  {/* ── 7. EMERGENCY SOS TAB (Leaflet Location Preview) ── */}
+                  {/* â”€â”€ 7. EMERGENCY SOS TAB â”€â”€ */}
                   {activeTab === "Emergency SOS" && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* Leaflet map preview coordinate location */}
-                      <div className={`${cardClass} h-fit flex flex-col justify-between gap-6`}>
-                        <div className="flex justify-between items-center border-b border-gray-400/10 pb-4">
-                          <h4 className="text-lg font-black">GPS Satellite Coordinates</h4>
-                          <span className="px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase tracking-widest">Active</span>
-                        </div>
-                        
-                        {/* Interactive mini map of current coords */}
-                        <div className="h-[220px] rounded-2xl overflow-hidden border border-white/5 bg-[#070e17] relative z-10">
-                          <div ref={sosMapContainerRef} className="w-full h-full" />
-                        </div>
+                    <div className="space-y-8">
 
-                        <div className="space-y-3.5">
-                          {[
-                            { label: "Active Latitude Lock", value: gpsCoords.lat },
-                            { label: "Active Longitude Lock", value: gpsCoords.lng },
-                            { label: "Satellite Elevation Index", value: gpsCoords.alt },
-                            { label: "Signal Strength (IRIDIUM)", value: "98% (Excellent)" },
-                            { label: "Active Device Sync", value: activeBike.name },
-                          ].map((loc) => (
-                            <div key={loc.label} className="border-b border-gray-400/5 pb-2 flex justify-between text-xs">
-                              <span className="text-gray-400 font-bold">{loc.label}</span>
-                              <span className="font-black text-white">{loc.value}</span>
-                            </div>
-                          ))}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                          <h2 className="text-2xl font-black">Emergency SOS & Safety Hub</h2>
+                          <p className="text-xs text-gray-400 font-semibold mt-1">One-tap SOS dispatch, emergency contacts, GPS tracking, and offline safety guide.</p>
+                        </div>
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-black ${
+                          sosActive ? "bg-red-500/15 border-red-500/40 text-red-400 animate-pulse" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                        }`}>
+                          <span className={`w-2 h-2 rounded-full ${sosActive ? "bg-red-500 animate-ping" : "bg-emerald-500"}`} />
+                          {sosActive ? "SOS TRANSMITTING" : "System Ready"}
                         </div>
                       </div>
 
-                      <div className="lg:col-span-2 space-y-8">
-                        <div className={`border rounded-3xl p-8 backdrop-blur-xl shadow-2xl min-h-[380px] flex flex-col justify-between transition-colors duration-500 ${
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                        <div className={`${cardClass} flex flex-col gap-5`}>
+                          <div className="flex justify-between items-center border-b border-gray-400/10 pb-4">
+                            <h4 className="text-base font-black">GPS Location</h4>
+                            <span className="px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase tracking-widest">
+                              {realGpsCoords ? "Live" : "Simulated"}
+                            </span>
+                          </div>
+
+                          <div className="h-[180px] rounded-2xl overflow-hidden border border-white/5 bg-[#070e17] relative z-10">
+                            <div ref={sosMapContainerRef} className="w-full h-full" />
+                          </div>
+
+                          <div className="space-y-2">
+                            {[
+                              { label: "Latitude", value: gpsCoords.lat },
+                              { label: "Longitude", value: gpsCoords.lng },
+                              { label: "Altitude", value: gpsCoords.alt },
+                              { label: "Device Sync", value: activeBike.name },
+                            ].map((loc) => (
+                              <div key={loc.label} className="border-b border-gray-400/5 pb-1.5 flex justify-between text-xs">
+                                <span className="text-gray-400 font-bold">{loc.label}</span>
+                                <span className="font-black text-white truncate max-w-[140px] text-right">{loc.value}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            onClick={handleGetGPS}
+                            disabled={gpsLoading}
+                            className="w-full py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2"
+                          >
+                            {gpsLoading ? (
+                              <><span className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" /> Acquiring Signal...</>
+                            ) : (
+                              <><Compass className="w-3.5 h-3.5" /> Get Real GPS Location</>
+                            )}
+                          </button>
+                          {gpsError && <p className="text-[10px] text-red-400 font-semibold text-center -mt-2">{gpsError}</p>}
+                          {realGpsCoords && (
+                            <a
+                              href={`https://www.google.com/maps?q=${realGpsCoords.lat},${realGpsCoords.lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full py-2 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 text-sky-400 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <Map className="w-3 h-3" /> Open in Google Maps
+                            </a>
+                          )}
+                        </div>
+
+                        <div className={`border rounded-3xl p-6 backdrop-blur-xl shadow-2xl flex flex-col justify-between transition-colors duration-500 ${
                           sosActive
                             ? "bg-red-950/80 border-red-500/40 text-white"
                             : headlightOn
@@ -4098,82 +4238,320 @@ interface LocationSuggestion {
                             : "bg-white border-black/10 text-[#0B1520]"
                         }`}>
                           <div>
-                            <div className="flex justify-between items-center pb-4 border-b border-gray-400/10 mb-6">
-                              <h4 className="text-lg font-black text-red-500">Emergency Satellite Dispatch</h4>
-                              <span className="text-xs text-gray-400 font-bold uppercase">Distress Beacon</span>
+                            <div className="flex justify-between items-center pb-4 border-b border-gray-400/10 mb-5">
+                              <h4 className="text-base font-black text-red-500">Emergency Satellite Dispatch</h4>
+                              <span className="text-[10px] text-gray-400 font-bold uppercase">Distress Beacon</span>
                             </div>
 
                             {!sosTriggered && !sosActive && (
-                              <div className="text-center py-10 max-w-md mx-auto">
-                                <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4 animate-bounce" />
-                                <h5 className="text-sm font-black uppercase tracking-wider mb-2 text-white">Emergency Response Warning</h5>
-                                <p className="text-xs text-gray-400 font-medium leading-relaxed">Triggering the SOS dispatch system transmits coordinates to Himalayan Search & Rescue networks. Only utilize in critical distress situations.</p>
+                              <div className="text-center py-8 max-w-xs mx-auto">
+                                <AlertTriangle className="w-14 h-14 text-red-500 mx-auto mb-3 animate-bounce" />
+                                <h5 className="text-xs font-black uppercase tracking-wider mb-2 text-white">Emergency Response Warning</h5>
+                                <p className="text-[10px] text-gray-400 font-medium leading-relaxed">Triggering the SOS dispatch transmits coordinates to Search & Rescue networks. Only use in critical distress situations.</p>
                               </div>
                             )}
 
                             {sosTriggered && !sosActive && (
-                              <div className="text-center py-10">
-                                <div className="w-20 h-20 rounded-full border-4 border-red-500 flex items-center justify-center font-black text-4xl text-red-500 mx-auto mb-4 animate-ping">{sosCountdown}</div>
-                                <h5 className="text-sm font-black uppercase tracking-wider text-red-500">Transmitting Satellite Signal...</h5>
-                                <p className="text-xs text-gray-400 mt-2">Click Cancel SOS immediately to abort launch sequence.</p>
+                              <div className="text-center py-8">
+                                <div className="w-16 h-16 rounded-full border-4 border-red-500 flex items-center justify-center font-black text-3xl text-red-500 mx-auto mb-3 animate-ping">{sosCountdown}</div>
+                                <h5 className="text-xs font-black uppercase tracking-wider text-red-500">Transmitting Satellite Signal...</h5>
+                                <p className="text-[10px] text-gray-400 mt-1">Click Cancel SOS to abort immediately.</p>
                               </div>
                             )}
 
                             {sosActive && (
-                              <div className="text-center py-6">
-                                <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+                              <div className="text-center py-5">
+                                <div className="relative w-20 h-20 mx-auto mb-3 flex items-center justify-center">
                                   <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-75" />
                                   <div className="absolute inset-2 rounded-full border-2 border-red-500/50 animate-pulse" />
-                                  <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center">
-                                    <AlertTriangle className="w-6 h-6 text-white" />
+                                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center">
+                                    <AlertTriangle className="w-5 h-5 text-white" />
                                   </div>
                                 </div>
-                                <h5 className="text-base font-black uppercase tracking-wider text-red-400">SOS ACTIVE & TRANSMITTING</h5>
-                                <p className="text-xs text-white/80 max-w-md mx-auto mt-2 leading-relaxed font-bold">
-                                  Emergency GPS: {gpsCoords.lat}, {gpsCoords.lng} ({gpsCoords.alt}) transmitted to Himalayan Rescuers. Dispatching search team. Helicopter unit notified.
+                                <h5 className="text-sm font-black uppercase tracking-wider text-red-400">SOS ACTIVE & TRANSMITTING</h5>
+                                <p className="text-[10px] text-white/80 max-w-xs mx-auto mt-1.5 leading-relaxed font-bold">
+                                  GPS: {gpsCoords.lat}, {gpsCoords.lng} transmitted. Dispatching search team.
                                 </p>
                               </div>
                             )}
                           </div>
 
-                          <div className="flex justify-center gap-4 mt-6">
+                          <div className="flex justify-center gap-3 mt-5">
                             {!sosTriggered && !sosActive ? (
-                              <button onClick={triggerSos} className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-black text-sm tracking-widest uppercase rounded-2xl shadow-lg shadow-red-600/35 transition-colors">
+                              <button onClick={triggerSos} className="px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs tracking-widest uppercase rounded-2xl shadow-lg shadow-red-600/35 transition-colors">
                                 Trigger Satellite SOS
                               </button>
                             ) : (
-                              <button onClick={cancelSos} className="px-8 py-4 bg-black/60 border border-white/10 hover:border-white/20 text-white font-black text-sm tracking-widest uppercase rounded-2xl transition-all">
+                              <button onClick={cancelSos} className="px-6 py-3.5 bg-black/60 border border-white/10 hover:border-white/20 text-white font-black text-xs tracking-widest uppercase rounded-2xl transition-all">
                                 Cancel SOS Transmission
                               </button>
                             )}
                           </div>
                         </div>
 
-                        <div className={`${cardClass}`}>
-                          <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-4 border-b border-gray-400/5 pb-2">Himalayan Emergency Registry</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                            {[
-                              { title: "Himalayan Rescue Command", number: "+91-177-2621401" },
-                              { title: "Kaza Local Police Station", number: "+91-1906-222212" },
-                              { title: "Manali Alpine Medical", number: "+91-1902-253385" },
-                            ].map((call) => (
-                              <div key={call.title} className="p-3 bg-black/15 rounded-xl border border-white/5 flex justify-between items-center">
-                                <div>
-                                  <p className="font-black text-[10px] text-gray-400">{call.title}</p>
-                                  <p className="font-bold text-white mt-0.5">{call.number}</p>
+                        <div className={`${cardClass} flex flex-col gap-4`}>
+                          <div className="flex justify-between items-center border-b border-gray-400/10 pb-4">
+                            <h4 className="text-base font-black">Emergency Contacts</h4>
+                            <button
+                              onClick={() => setShowAddContact(!showAddContact)}
+                              className="w-7 h-7 rounded-lg bg-[#FF6B00]/10 border border-[#FF6B00]/25 flex items-center justify-center text-[#FF6B00] hover:bg-[#FF6B00]/20 transition-all"
+                            >
+                              {showAddContact ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+
+                          {showAddContact && (
+                            <form onSubmit={handleAddContact} className="space-y-2.5 p-3 rounded-xl bg-black/15 border border-white/5">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-[#FF6B00] mb-1">New Contact</p>
+                              {[
+                                { placeholder: "Full Name *", value: newContactName, setter: setNewContactName },
+                                { placeholder: "Phone Number *", value: newContactPhone, setter: setNewContactPhone },
+                                { placeholder: "Relation (e.g. Father)", value: newContactRelation, setter: setNewContactRelation },
+                              ].map((field, i) => (
+                                <input
+                                  key={i}
+                                  type={i === 1 ? "tel" : "text"}
+                                  placeholder={field.placeholder}
+                                  value={field.value}
+                                  onChange={(e) => field.setter(e.target.value)}
+                                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#FF6B00] ${
+                                    headlightOn ? "bg-black/45 border-white/10 text-white placeholder-gray-600" : "bg-white border-black/10 text-[#0B1520]"
+                                  }`}
+                                />
+                              ))}
+                              <button type="submit" className="w-full py-2 bg-[#FF6B00] hover:bg-orange-600 text-white rounded-xl text-xs font-black transition-all">
+                                Save Contact
+                              </button>
+                            </form>
+                          )}
+
+                          <div className="flex-1 space-y-2.5 overflow-y-auto max-h-[280px]">
+                            {emergencyContacts.length === 0 ? (
+                              <div className="text-center py-8">
+                                <Phone className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                                <p className="text-xs text-gray-500 font-semibold">No emergency contacts yet.</p>
+                                <p className="text-[10px] text-gray-600 mt-0.5">Click + to add your first contact.</p>
+                              </div>
+                            ) : (
+                              emergencyContacts.map((contact) => (
+                                <div key={contact.id} className={`p-3 rounded-xl border transition-all ${
+                                  contact.isPrimary
+                                    ? "bg-[#FF6B00]/10 border-[#FF6B00]/30"
+                                    : headlightOn ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5"
+                                }`}>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <p className="text-xs font-black truncate">{contact.name}</p>
+                                        {contact.isPrimary && (
+                                          <span className="flex-shrink-0 text-[8px] bg-[#FF6B00] text-white px-1.5 py-0.5 rounded-full font-black">PRIMARY</span>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{contact.relation}</p>
+                                      <p className="text-[10px] font-black text-emerald-400 mt-0.5">{contact.phone}</p>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      <a
+                                        href={`tel:${contact.phone}`}
+                                        className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all"
+                                        title="Call"
+                                      >
+                                        <Phone className="w-3 h-3" />
+                                      </a>
+                                      {!contact.isPrimary && (
+                                        <button
+                                          onClick={() => handleSetPrimaryContact(contact.id)}
+                                          className="w-7 h-7 rounded-lg bg-[#FF6B00]/10 border border-[#FF6B00]/25 flex items-center justify-center text-[#FF6B00] hover:bg-[#FF6B00]/30 transition-all"
+                                          title="Set as Primary"
+                                        >
+                                          <Star className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handleDeleteContact(contact.id)}
+                                        className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
-                                <a href={`tel:${call.number}`} className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all">
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                        <div className={cardClass}>
+                          <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-4 border-b border-gray-400/5 pb-2">National Emergency Helplines</h4>
+                          <div className="space-y-2.5">
+                            {[
+                              { title: "National Emergency", number: "112" },
+                              { title: "Police Control Room", number: "100" },
+                              { title: "Ambulance Services", number: "108" },
+                              { title: "Fire Brigade", number: "101" },
+                              { title: "Himalayan Rescue CMD", number: "+91-177-2621401" },
+                              { title: "Kaza Police Station", number: "+91-1906-222212" },
+                              { title: "Manali Alpine Medical", number: "+91-1902-253385" },
+                              { title: "Highway Helpline (NH)", number: "1033" },
+                            ].map((call) => (
+                              <div key={call.title} className="p-2.5 bg-black/15 rounded-xl border border-white/5 flex justify-between items-center">
+                                <div>
+                                  <p className="font-black text-[9px] text-gray-400">{call.title}</p>
+                                  <p className="font-bold text-white text-xs mt-0.5">{call.number}</p>
+                                </div>
+                                <a
+                                  href={`tel:${call.number}`}
+                                  className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all flex-shrink-0"
+                                >
                                   <Phone className="w-3.5 h-3.5" />
                                 </a>
                               </div>
                             ))}
                           </div>
                         </div>
+
+                        <div className={cardClass}>
+                          <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-4 border-b border-gray-400/5 pb-2">Nearby Essential Services</h4>
+                          <p className="text-[10px] text-gray-500 font-semibold mb-4">
+                            {realGpsCoords ? "Using your real GPS location." : "Using simulated location. Get GPS for accurate results."}
+                          </p>
+                          <div className="space-y-3">
+                            {[
+                              { label: "Nearest Hospitals", query: "hospitals near me", icon: "ðŸ¥", desc: "Emergency medical facilities" },
+                              { label: "Petrol / Fuel Stations", query: "petrol pump near me", icon: "â›½", desc: "Refuel points along your route" },
+                              { label: "Motorcycle Service Centers", query: "motorcycle service center near me", icon: "ðŸ”§", desc: "Repairs and breakdown support" },
+                              { label: "Police Stations", query: "police station near me", icon: "ðŸš”", desc: "Law enforcement & assistance" },
+                              { label: "Pharmacies", query: "pharmacy near me", icon: "ðŸ’Š", desc: "Medications and first-aid supplies" },
+                            ].map((place) => {
+                              const mapsUrl = realGpsCoords
+                                ? `https://www.google.com/maps/search/${encodeURIComponent(place.query)}/@${realGpsCoords.lat},${realGpsCoords.lng},14z`
+                                : `https://www.google.com/maps/search/${encodeURIComponent(place.query)}`;
+                              return (
+                                <a
+                                  key={place.label}
+                                  href={mapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all hover:scale-[1.02] ${
+                                    headlightOn ? "bg-black/20 border-white/5 hover:bg-white/5" : "bg-gray-50 border-black/5 hover:bg-gray-100"
+                                  }`}
+                                >
+                                  <div className="w-9 h-9 rounded-xl bg-black/20 border border-white/5 flex items-center justify-center flex-shrink-0 text-base">
+                                    {place.icon}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-black truncate">{place.label}</p>
+                                    <p className="text-[9px] text-gray-500 font-semibold">{place.desc}</p>
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className={cardClass}>
+                          <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-4 border-b border-gray-400/5 pb-2">Offline Safety Guide</h4>
+                          <p className="text-[10px] text-gray-500 font-semibold mb-4">Critical procedures â€” available offline, no internet required.</p>
+                          <div className="space-y-2">
+                            {[
+                              {
+                                id: "accident", title: "Accident First Response", icon: "ðŸš‘",
+                                steps: [
+                                  "Move to a safe zone â€” off the road and away from traffic.",
+                                  "Check yourself for injuries before helping others.",
+                                  "Call 112 (National Emergency) immediately.",
+                                  "Do NOT move an injured person unless there is immediate danger.",
+                                  "Apply direct pressure to bleeding wounds with cloth.",
+                                  "Keep the injured person warm and calm.",
+                                  "Share your GPS coordinates with rescue teams.",
+                                ],
+                              },
+                              {
+                                id: "tyre", title: "Tyre Puncture Procedure", icon: "ðŸ›ž",
+                                steps: [
+                                  "Grip handlebars firmly â€” do NOT brake suddenly.",
+                                  "Gradually reduce speed and ease to the road shoulder.",
+                                  "Turn on hazard lights / use reflective triangles.",
+                                  "Locate your puncture repair kit.",
+                                  "Remove the wheel and locate the puncture source.",
+                                  "Use tyre plugs for tubeless or patch kit for tubes.",
+                                  "Re-inflate to correct pressure (check tyre sidewall).",
+                                ],
+                              },
+                              {
+                                id: "stall", title: "Engine Stall Recovery", icon: "âš¡",
+                                steps: [
+                                  "Coast to a safe stop on the road shoulder.",
+                                  "Check fuel level â€” empty? Call for fuel delivery.",
+                                  "Check kill switch â€” must be in ON position.",
+                                  "Check choke setting for cold weather starts.",
+                                  "Inspect spark plug connections for loose contacts.",
+                                  "Check battery terminals for corrosion.",
+                                  "If no fix, call roadside: 1033 (NH Helpline).",
+                                ],
+                              },
+                              {
+                                id: "weather", title: "Severe Weather Protocol", icon: "â›ˆï¸",
+                                steps: [
+                                  "Pull over immediately during lightning or hail.",
+                                  "Seek shelter under a bridge or solid structure.",
+                                  "Never shelter under isolated trees.",
+                                  "Wait for storm to fully pass before riding.",
+                                  "In fog: use low-beam headlights and hazard flashers.",
+                                  "In snow/ice: shift to low gear and reduce speed by 50%.",
+                                  "Black ice: do NOT brake â€” release throttle slowly.",
+                                ],
+                              },
+                              {
+                                id: "rescue", title: "Mountain Rescue Signals", icon: "ðŸ”ï¸",
+                                steps: [
+                                  "International distress: 6 signals per minute (any form).",
+                                  "Mirror flash: reflect sunlight toward rescuers.",
+                                  "Whistle: 3 short blasts = distress signal.",
+                                  "Bright clothing: spread on open ground for aerial visibility.",
+                                  "HELP in stones/snow: arrange large letters in clearing.",
+                                  "Fire signal: 3 fires in triangle â€” universal distress.",
+                                  "GPS: share coordinates from this app with rescue teams.",
+                                ],
+                              },
+                            ].map((section) => (
+                              <div key={section.id} className={`rounded-xl border overflow-hidden ${headlightOn ? "border-white/5" : "border-black/5"}`}>
+                                <button
+                                  onClick={() => setOpenSafetySection(openSafetySection === section.id ? null : section.id)}
+                                  className={`w-full flex items-center justify-between px-4 py-3 text-xs font-black transition-all ${
+                                    openSafetySection === section.id
+                                      ? "bg-[#FF6B00]/10 text-[#FF6B00]"
+                                      : headlightOn ? "bg-black/20 hover:bg-white/5 text-white" : "bg-gray-50 hover:bg-gray-100 text-[#0B1520]"
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2"><span>{section.icon}</span>{section.title}</span>
+                                  <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${openSafetySection === section.id ? "rotate-90" : ""}`} />
+                                </button>
+                                {openSafetySection === section.id && (
+                                  <div className="px-4 py-3 space-y-1.5 border-t border-white/5">
+                                    {section.steps.map((step, i) => (
+                                      <div key={i} className="flex gap-2.5 text-[10px] font-semibold text-gray-400">
+                                        <span className="w-4 h-4 flex-shrink-0 rounded-full bg-[#FF6B00]/10 border border-[#FF6B00]/25 text-[#FF6B00] flex items-center justify-center font-black text-[8px]">{i + 1}</span>
+                                        <span>{step}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   )}
 
-                  {/* ── 8. SETTINGS TAB (OpenWeather API key setup) ── */}
+                  {/* â”€â”€ 8. SETTINGS TAB (OpenWeather API key setup) â”€â”€ */}
                   {activeTab === "Settings" && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                       
@@ -4279,9 +4657,9 @@ interface LocationSuggestion {
         </main>
       </div>
 
-      {/* ════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           FLOATING GLOBAL AI CHATBOX
-      ════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
         
         <AnimatePresence>
@@ -4392,9 +4770,9 @@ interface LocationSuggestion {
 
       </div>
 
-      {/* ════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           MOBILE MENU DRAWER
-      ════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
@@ -4468,7 +4846,7 @@ interface LocationSuggestion {
         )}
       </AnimatePresence>
 
-      {/* ── Add Motorcycle Modal ── */}
+      {/* â”€â”€ Add Motorcycle Modal â”€â”€ */}
       <AnimatePresence>
         {showAddBike && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
@@ -4598,7 +4976,7 @@ interface LocationSuggestion {
         )}
       </AnimatePresence>
 
-      {/* ── Edit Motorcycle Modal ── */}
+      {/* â”€â”€ Edit Motorcycle Modal â”€â”€ */}
       <AnimatePresence>
         {showEditBike && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
@@ -4730,3 +5108,4 @@ interface LocationSuggestion {
     </div>
   );
 }
+
