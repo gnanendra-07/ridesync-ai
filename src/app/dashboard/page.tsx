@@ -47,6 +47,9 @@ import {
   User,
 } from "lucide-react";
 import type L from "leaflet";
+import { useAuth } from "@/contexts/AuthContext";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 /* â”€â”€â”€ Predefined Landmark Coordinates for Route Mapping â”€â”€â”€ */
 
@@ -838,6 +841,11 @@ const fetchRoute = async (start: [number, number], end: [number, number], mode: 
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "error" | "offline">("idle");
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [isLoadedFromCloud, setIsLoadedFromCloud] = useState(false);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
 
@@ -1094,6 +1102,146 @@ interface LocationSuggestion {
       });
     }
   }, []);
+
+  const syncDataToCloud = async (uid: string) => {
+    if (!uid) return;
+    setSyncStatus("syncing");
+    setSyncError(null);
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setSyncStatus("offline");
+        return;
+      }
+      await setDoc(doc(db, "userData", uid), {
+        displayName,
+        username,
+        riderEmail,
+        riderPhone,
+        riderBloodGroup,
+        riderBio,
+        distanceUnit,
+        tempUnit,
+        mapTileProvider,
+        defaultRouteMode,
+        notifPush,
+        notifEmail,
+        notifSosAlerts,
+        notifSound,
+        openWeatherApiKey,
+        activeBikeId: activeBike.id,
+        motorcycles: motorcyclesList,
+        journalEntries,
+        packingItems,
+        emergencyContacts,
+        updatedAt: new Date().toISOString(),
+      });
+      setSyncStatus("synced");
+    } catch (err) {
+      console.error("Cloud sync failed:", err);
+      setSyncStatus("error");
+      setSyncError(err instanceof Error ? err.message : "Unknown error during cloud sync");
+    }
+  };
+
+  const loadDataFromCloud = async (uid: string) => {
+    if (!uid) return;
+    setSyncStatus("syncing");
+    setSyncError(null);
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setSyncStatus("offline");
+        return;
+      }
+      const docSnap = await getDoc(doc(db, "userData", uid));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.displayName) setDisplayName(data.displayName);
+        if (data.username) setUsername(data.username);
+        if (data.riderEmail) setRiderEmail(data.riderEmail);
+        if (data.riderPhone) setRiderPhone(data.riderPhone);
+        if (data.riderBloodGroup) setRiderBloodGroup(data.riderBloodGroup);
+        if (data.riderBio) setRiderBio(data.riderBio);
+        if (data.distanceUnit) setDistanceUnit(data.distanceUnit);
+        if (data.tempUnit) setTempUnit(data.tempUnit);
+        if (data.mapTileProvider) setMapTileProvider(data.mapTileProvider);
+        if (data.defaultRouteMode) setDefaultRouteMode(data.defaultRouteMode);
+        if (data.notifPush !== undefined) setNotifPush(data.notifPush);
+        if (data.notifEmail !== undefined) setNotifEmail(data.notifEmail);
+        if (data.notifSosAlerts !== undefined) setNotifSosAlerts(data.notifSosAlerts);
+        if (data.notifSound !== undefined) setNotifSound(data.notifSound);
+        if (data.openWeatherApiKey) setOpenWeatherApiKey(data.openWeatherApiKey);
+        
+        if (data.motorcycles && data.motorcycles.length > 0) {
+          setMotorcyclesList(data.motorcycles);
+          const active = data.motorcycles.find((b: Motorcycle) => b.id === data.activeBikeId) || data.motorcycles[0];
+          setActiveBike(active);
+        }
+        if (data.journalEntries) setJournalEntries(data.journalEntries);
+        if (data.packingItems) setPackingItems(data.packingItems);
+        if (data.emergencyContacts) setEmergencyContacts(data.emergencyContacts);
+        
+        setSyncStatus("synced");
+      } else {
+        await syncDataToCloud(uid);
+      }
+      setIsLoadedFromCloud(true);
+    } catch (err) {
+      console.error("Failed to load user cloud data:", err);
+      setSyncStatus("error");
+      setSyncError(err instanceof Error ? err.message : "Unknown error while loading cloud data");
+      setIsLoadedFromCloud(true);
+    }
+  };
+
+  // Observe active user to trigger load
+  useEffect(() => {
+    if (user && user.uid) {
+      const loadTimer = setTimeout(() => {
+        loadDataFromCloud(user.uid);
+      }, 50);
+      return () => clearTimeout(loadTimer);
+    } else {
+      const loadTimer = setTimeout(() => {
+        setIsLoadedFromCloud(true);
+      }, 50);
+      return () => clearTimeout(loadTimer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Sync back to cloud on state changes
+  useEffect(() => {
+    if (user && user.uid && isLoadedFromCloud) {
+      const timer = setTimeout(() => {
+        syncDataToCloud(user.uid);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    user,
+    isLoadedFromCloud,
+    displayName,
+    username,
+    riderEmail,
+    riderPhone,
+    riderBloodGroup,
+    riderBio,
+    distanceUnit,
+    tempUnit,
+    mapTileProvider,
+    defaultRouteMode,
+    notifPush,
+    notifEmail,
+    notifSosAlerts,
+    notifSound,
+    openWeatherApiKey,
+    activeBike,
+    motorcyclesList,
+    journalEntries,
+    packingItems,
+    emergencyContacts,
+  ]);
 
   // Initial Load from localStorage
   useEffect(() => {
@@ -2578,6 +2726,34 @@ interface LocationSuggestion {
 
           {/* Header Controls (Right aligned) */}
           <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Cloud Sync Status Indicator */}
+            {user && (
+              <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider theme-transition ${
+                syncStatus === "syncing"
+                  ? headlightOn ? "bg-sky-500/10 border-sky-500/25 text-sky-400" : "bg-sky-50 border-sky-200 text-sky-600"
+                  : syncStatus === "synced"
+                  ? headlightOn ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-600"
+                  : syncStatus === "offline"
+                  ? headlightOn ? "bg-amber-500/10 border-amber-500/25 text-amber-400" : "bg-amber-50 border-amber-200 text-amber-600"
+                  : syncStatus === "error"
+                  ? headlightOn ? "bg-red-500/10 border-red-500/25 text-red-400 animate-pulse" : "bg-red-50 border-red-200 text-red-600 animate-pulse"
+                  : headlightOn ? "bg-white/4 border-white/8 text-white/40" : "bg-black/3 border-black/8 text-gray-400"
+              }`} title={syncStatus === "error" && syncError ? syncError : `Cloud Sync Status: ${syncStatus}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  syncStatus === "syncing" ? "bg-sky-400 animate-pulse" :
+                  syncStatus === "synced" ? "bg-emerald-400" :
+                  syncStatus === "offline" ? "bg-amber-400" :
+                  syncStatus === "error" ? "bg-red-400 animate-ping" : "bg-gray-400"
+                }`} />
+                <span>
+                  {syncStatus === "syncing" ? "Syncing" :
+                   syncStatus === "synced" ? "Synced" :
+                   syncStatus === "offline" ? "Offline" :
+                   syncStatus === "error" ? "Sync Err" : "Cloud"}
+                </span>
+              </div>
+            )}
+
             {/* Signature Headlight Theme Toggle */}
             <button
               onClick={handleToggleHeadlight}
